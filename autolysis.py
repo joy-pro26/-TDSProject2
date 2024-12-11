@@ -623,7 +623,8 @@ def generate_insights_with_llm(report, images, data):
     # Create a structured prompt
     analysis_request = f"""
 You are a data analyst tasked with generating a comprehensive and coherent narrative report based on the following data analysis results.
-
+### Executive summary
+Provide an excellent executive summary of insights and a cohesive story based on this analysis.
 ### Introduction
 Provide a brief overview of the dataset, including its context and the purpose of the analysis.
 
@@ -713,9 +714,56 @@ def generate_summary_report(data):
 
     return sumreport
 
+def analyze_visualization_with_llm(image_path):
+    with open(image_path, "rb") as image_file:
+        image_bytes = image_file.read()
+
+    try:
+        # Prepare the payload
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": "You are an expert data analyst and storyteller."},
+                {"role": "user", "content": "Analyze this visualization for insights."}
+            ]
+        }
+
+        # Make the API call
+        api_base = "https://aiproxy.sanand.workers.dev/openai/v1"
+        headers = {
+            "Authorization": f"Bearer {os.environ.get('AIPROXY_TOKEN')}",
+            "Content-Type": "application/json"
+        }
+        response = requests.post(
+            f"{api_base}/chat/completions",
+            headers=headers,
+            json=payload,
+            files={"file": (os.path.basename(image_path), image_bytes)}
+        )
+        response.raise_for_status()
+
+        # Extract the insights
+        result = response.json()
+        insight = result["choices"][0]["message"]["content"].strip()
+        return insight
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error making API request: {e}")
+        return ""
+    except KeyError as e:
+        print(f"Unexpected response structure: {e}")
+        return ""
+
+def process_visualizations_with_llm(images):
+    insights = []
+    for img in images:
+        insight = analyze_visualization_with_llm(img)
+        if insight:
+            insights.append((img, insight))
+    return insights
 
         
-def generate_readme(story, images, output_folder,report):
+def generate_readme(story, images,insights,output_folder,report):
     """
     Generates a README.md file summarizing the dataset analysis, insights, and visualizations.
 
@@ -729,9 +777,10 @@ def generate_readme(story, images, output_folder,report):
             
         f.write("# Summary Insight Report\n\n")
         f.write(story + "\n\n")
-        for img in images:
-            f.write(f"![{os.path.basename(img)}]({os.path.basename(img)})\n")  # Embed visualizations in the README
-        # Format and write the report dictionary as a string 
+        for img, insight in insights:
+            f.write(f"### Insight from {os.path.basename(img)}\n")
+            f.write(f"{insight}\n\n")
+            f.write(f"![{os.path.basename(img)}]({os.path.basename(img)})\n\n")
                 # Summary Statistics
         f.write("## Appendix \n")
         f.write("## Summary Statistics of the given data\n")
@@ -793,12 +842,13 @@ def main():
     # Process images for reduced size and detail
     #compressed_images = process_images(images,output_folder)
     print("Generating insights using LLM...")
+    insights = process_visualizations_with_llm(images)
     # Generate insights
     story = generate_insights_with_llm(report, images,data)
     #story='xxx'
     print("Creating README.md...")
     # Create README
-    generate_readme(story, images, output_folder,sumreport)
+    generate_readme(story, images,insights, output_folder,sumreport)
 
     print(f"Analysis complete. Outputs saved in {output_folder}.")
 
