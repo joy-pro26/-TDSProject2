@@ -85,222 +85,180 @@ def analyze_dataset(file_path):
         print(f"Error: {e}")
         sys.exit(1)
 
-def perform_suggested_analyses(data, suggestions, output_folder):
+def generate_visualizations(data, suggestions, output_folder):
     """
-    Performs the suggested analyses and creates visualizations based on LLM input.
+    Orchestrates the generation of visualizations based on suggestions.
 
     Args:
         data (DataFrame): The dataset to analyze.
-        suggestions (list): A list of suggested analysis types from the LLM.
-        output_folder (str): Path to the output folder.
+        suggestions (list): List of suggested analysis types.
+        output_folder (str): Path to save visualizations.
 
     Returns:
-        list: A list of file paths to the generated visualizations.
+        list: Paths to the generated visualization files.
     """
     images = []
     numeric_columns = data.select_dtypes(include=np.number)
+
     max_images = 6  # Limit the number of generated PNG files
     image_counter = 0
-    cor_image_counter = 0
     cor_max_images = 1
-    dist_max_images=1
-    dist_image_counter=0
-    clust_max_images=1
-    clust_image_counter=0
-    pca_max_images=1
-    pca_image_counter=0
-    ts_image_counter=0
-    ts_max_images=1
-    bp_image_counter=0
-    bp_max_images=1
+    dist_max_images = 1
+    dist_image_counter = 0
+    clust_max_images = 1
+    clust_image_counter = 0
+    pca_max_images = 1
+    pca_image_counter = 0
+    ts_image_counter = 0
+    ts_max_images = 1
+    bp_image_counter = 0
+    bp_max_images = 1
+
     for suggestion in suggestions:
         if image_counter >= max_images:
             break  # Stop generating images once the limit is reached
 
         suggestion = suggestion.lower()
         print(suggestion)
-        
+
         if re.search(r"correlation", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
-          
-          if cor_image_counter < cor_max_images:
-                #break  # Stop generating images once the limit is reached
-                      # Correlation heatmap
-            plt.figure(figsize=(10, 8))
-            sns.heatmap(data.corr(numeric_only=True), annot=True, cmap="coolwarm", cbar_kws={'label': 'Correlation Coefficient'})
-            heatmap_path = os.path.join(output_folder, "correlation_heatmap.png")
-            plt.title("Correlation Matrix Heatmap", fontsize=14, weight='bold')
-            plt.xticks(rotation=45, ha='right', fontsize=10)
-            plt.yticks(fontsize=10)
-            plt.tight_layout()
-            plt.savefig(heatmap_path)
-            images.append(heatmap_path)
-            image_counter += 1
-            cor_image_counter+= 1
-            plt.close()
+              images.extend(generate_correlation_heatmap(data, numeric_columns, output_folder))
+              image_counter += 1
 
+        elif re.search(r"distribution", suggestion, re.IGNORECASE) and not numeric_columns.empty:
+              images.extend(generate_distribution_plots(data, numeric_columns, output_folder))
+              image_counter += 1
+             
 
-        elif re.search(r"distribution", suggestion, re.IGNORECASE) and  not numeric_columns.empty:
-       
-          
-            # Distribution of numeric columns
-            for col in numeric_columns:
-                # Check for valid data (non-NaN, valid range)
-                if data[col].dropna().shape[0] == 0:
-                    print(f"Skipping column '{col}' for histogram: No valid (non-NaN) data.")
-                    continue
-                col_range = data[col].max() - data[col].min()
-                if col_range == 0:
-                    print(f"Skipping column '{col}' for histogram: no variation in data.")
-                    continue  # Skip columns with no variation
-                if dist_image_counter < dist_max_images:
-                  binwidth = col_range / 30 if col_range > 0 else 1  # Use default binwidth if range is 0
+        elif re.search(r"cluster", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
+              images.extend(generate_cluster_visualization(data, numeric_columns, output_folder))
+              image_counter += 1
+
+        elif re.search(r"pca", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
+              images.extend(generate_pca_visualization(data, numeric_columns, output_folder))
+              image_counter += 1
+
+        elif re.search(r"time series", suggestion, re.IGNORECASE) and 'date' in data.columns:
+              images.extend(generate_time_series_plot(data, numeric_columns, output_folder))
+              image_counter += 1
+
+        elif re.search(r"boxplot", suggestion, re.IGNORECASE) and not numeric_columns.empty:
+              images.extend(generate_box_plots(data, numeric_columns, output_folder))
+              image_counter += 1
+
+    return images
+
+def generate_correlation_heatmap(data, numeric_columns, output_folder):
+    if numeric_columns.shape[1] > 1:
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(data.corr(numeric_only=True), annot=True, cmap="coolwarm", cbar_kws={'label': 'Correlation Coefficient'})
+        heatmap_path = os.path.join(output_folder, "correlation_heatmap.png")
+        plt.title("Correlation Matrix Heatmap", fontsize=14, weight='bold')
+        plt.xticks(rotation=45, ha='right', fontsize=10)
+        plt.yticks(fontsize=10)
+        plt.tight_layout()
+        plt.savefig(heatmap_path)
+        plt.close()
+        return [heatmap_path]
+    return []
+
+def generate_distribution_plots(data, numeric_columns, output_folder):
+    images = []
+    cor_image_counter = 0
+    cor_max_images = 1
+    for col in numeric_columns:
+        if data[col].dropna().shape[0] > 0:
+            if cor_image_counter < cor_max_images:
+              col_range = data[col].max() - data[col].min()
+              if col_range > 0:
                   plt.figure(figsize=(10, 6))
-                  sns.histplot(data[col], kde=True, label=col, binwidth=binwidth)
-                  plt.legend(title="Columns", loc="upper right", bbox_to_anchor=(1.2, 1))  # Adjust legend
+                  sns.histplot(data[col], kde=True, binwidth=col_range / 30)
                   plt.title(f"Distribution of {col}", fontsize=14, weight='bold')
                   plt.xlabel("Value", fontsize=12)
                   plt.ylabel("Frequency", fontsize=12)
-                  hist_path = f"{output_folder}/{col}_distribution.png"
+                  hist_path = os.path.join(output_folder, f"{col}_distribution.png")
                   plt.savefig(hist_path)
-                  images.append(hist_path)
-                  image_counter += 1
-                  dist_image_counter+= 1
                   plt.close()
+                  cor_image_counter+= 1
+                  images.append(hist_path)
+    return images
 
-        elif re.search(r"cluster", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
+def generate_cluster_visualization(data, numeric_columns, output_folder):
+    if numeric_columns.shape[1] > 1:
+        scaler = StandardScaler()
+        scaled_data = scaler.fit_transform(numeric_columns.fillna(0))
+        kmeans = KMeans(n_clusters=3, random_state=42)
+        kmeans.fit(scaled_data)
+        data['Cluster'] = kmeans.labels_
 
-            if clust_image_counter < clust_max_images:
-              # Step 1: Handle missing values and standardize the data
-              scaler = StandardScaler()
-              numeric_columns_scaled = scaler.fit_transform(numeric_columns.fillna(0))
+        plt.figure(figsize=(10, 8))
+        sns.scatterplot(
+            x=numeric_columns.iloc[:, 0],
+            y=numeric_columns.iloc[:, 1],
+            hue=data['Cluster'],
+            palette='tab10',
+            s=100
+        )
+        plt.title("Cluster Visualization", fontsize=14, weight='bold')
+        plt.xlabel(numeric_columns.columns[0], fontsize=12)
+        plt.ylabel(numeric_columns.columns[1], fontsize=12)
+        plt.legend(title="Cluster", loc='best')
+        cluster_path = os.path.join(output_folder, "cluster_visualization.png")
+        plt.savefig(cluster_path)
+        plt.close()
+        return [cluster_path]
+    return []
 
-              # Step 2: K-Means clustering
-              kmeans = KMeans(n_clusters=3, random_state=42)
-              kmeans.fit(numeric_columns_scaled)
-              
-              # Assign cluster labels to the original DataFrame
-              data['Cluster'] = kmeans.labels_
+def generate_pca_visualization(data, numeric_columns, output_folder):
+    if numeric_columns.shape[1] > 1:
+        pca = PCA(n_components=2)
+        pca_result = pca.fit_transform(numeric_columns.fillna(0))
+        plt.figure(figsize=(10, 8))
+        sns.scatterplot(x=pca_result[:, 0], y=pca_result[:, 1], alpha=0.7)
+        plt.title("PCA Visualization", fontsize=14, weight='bold')
+        plt.xlabel("Principal Component 1", fontsize=12)
+        plt.ylabel("Principal Component 2", fontsize=12)
+        pca_path = os.path.join(output_folder, "pca_visualization.png")
+        plt.savefig(pca_path)
+        plt.close()
+        return [pca_path]
+    return []
 
-              # Step 3: Plot the first two dimensions of the clusters
-              plt.figure(figsize=(10, 8))
-              sns.scatterplot(
-                  x=numeric_columns.iloc[:, 0],  # First numeric column
-                  y=numeric_columns.iloc[:, 1],  # Second numeric column
-                  hue=data['Cluster'],          # Cluster labels
-                  palette='tab10',
-                  style=data['Cluster'],        # Add style differentiation if desired
-                  s=100  # Marker size
-              )
-              plt.title("Cluster Visualization", fontsize=14, weight='bold')
-              plt.xlabel(numeric_columns.columns[0], fontsize=12)
-              plt.ylabel(numeric_columns.columns[1], fontsize=12)
-              plt.legend(title="Cluster", loc='best')
+def generate_time_series_plot(data, numeric_columns, output_folder):
+    if 'date' in data.columns:
+        data['date'] = pd.to_datetime(data['date'], errors='coerce')
+        data = data.dropna(subset=['date'])
+        if not data.empty:
+            time_series_data = numeric_columns.groupby(data['date'].dt.to_period('M')).mean()
+            if not time_series_data.empty:
+                plt.figure(figsize=(10, 6))
+                for col in numeric_columns.columns:
+                    plt.plot(
+                        time_series_data.index.to_timestamp(),
+                        time_series_data[col],
+                        label=col
+                    )
+                plt.title("Time Series Analysis", fontsize=14, weight='bold')
+                plt.xlabel("Date", fontsize=12)
+                plt.ylabel("Average Value", fontsize=12)
+                plt.legend()
+                time_series_path = os.path.join(output_folder, "time_series_analysis.png")
+                plt.savefig(time_series_path)
+                plt.close()
+                return [time_series_path]
+    return []
 
-              # Step 4: Save the plot
-              cluster_path = os.path.join(output_folder, "cluster_visualization.png")
-              plt.savefig(cluster_path)
-              plt.close()
-
-              # Update counters and image storage
-              images = []  # Ensure the `images` list exists
-              images.append(cluster_path)
-              clust_image_counter += 1
-
-              print(f"Cluster visualization saved at: {cluster_path}")
-            else:
-                  print("Maximum number of cluster visualizations reached.")
-
-        elif re.search(r"pca", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
-
-            if pca_image_counter < pca_max_images:
-              # PCA dimensionality reduction
-              pca = PCA(n_components=2)
-              pca_result = pca.fit_transform(numeric_columns.fillna(0))
-              plt.figure(figsize=(10, 8))
-              sns.scatterplot(x=pca_result[:, 0], y=pca_result[:, 1], alpha=0.7)
-              plt.title("PCA Visualization", fontsize=14, weight='bold')
-              #plt.xlabel("Principal Component 1", fontsize=12)
-              #plt.ylabel("Principal Component 2", fontsize=12)
-              plt.xlabel(numeric_columns.columns[0], fontsize=12)
-              plt.ylabel(numeric_columns.columns[1], fontsize=12)
-              pca_path = os.path.join(output_folder, "pca_visualization.png")
-              plt.savefig(pca_path)
-              images.append(pca_path)
-              image_counter += 1
-              pca_image_counter+= 1
-              plt.close()
-# Time Series Analysis
-
-# Ensure 'date' is in the data columns
-        elif re.search(r"time series", suggestion, re.IGNORECASE) and 'date' in data.columns:
-            if ts_image_counter < ts_max_images:
-                # Step 1: Parse the date column with a specified format
-                try:
-                    data['date'] = pd.to_datetime(data['date'], errors='coerce', format='%d-%b-%y')
-                except ValueError:
-                    print("Known format parsing failed. Attempting generic parsing...")
-
-                # Step 2: Fallback to generic parsing if format is unknown
-                data['date'] = pd.to_datetime(data['date'], errors='coerce')
-
-                # Step 3: Filter out rows with invalid dates
-                invalid_dates = data['date'].isna().sum()
-                if invalid_dates > 0:
-                    print(f"Dropping {invalid_dates} rows with invalid dates.")
-                    data = data.dropna(subset=['date'])
-
-                # Proceed if valid data remains
-                if not data.empty:
-                    # Step 4: Group data by month and calculate mean for numeric columns
-                    numeric_columns = data.select_dtypes(include='number')
-                    time_series_data = numeric_columns.groupby(data['date'].dt.to_period('M')).mean()
-
-                    if not time_series_data.empty:
-                        # Step 5: Plot the time series data
-                        plt.figure(figsize=(10, 6))
-                        for col in numeric_columns.columns:
-                            if col in time_series_data.columns:
-                                plt.plot(
-                                    time_series_data.index.to_timestamp(),
-                                    time_series_data[col],
-                                    label=col
-                                )
-
-                        plt.title("Time Series Analysis", fontsize=14, weight='bold')
-                        plt.xlabel("Date", fontsize=12)
-                        plt.ylabel("Average Value", fontsize=12)
-                        plt.legend()
-
-                        # Save the plot
-                        time_series_path = os.path.join(output_folder, "time_series_analysis.png")
-                        plt.savefig(time_series_path)
-                        plt.close()
-
-                        # Increment counters
-                        print(f"Time series plot saved at {time_series_path}")
-                        ts_image_counter += 1
-                    else:
-                        print("Time series data is empty after grouping.")
-                else:
-                    print("No valid data available after dropping rows with invalid dates.")
-
-# Box Plot
-        #elif re.search(r"boxplot", suggestion, re.IGNORECASE) and not numeric_columns.empty:
-        elif (re.search(r"boxplot", suggestion, re.IGNORECASE) or re.search(r"box plot", suggestion, re.IGNORECASE)) and not numeric_columns.empty:         
-                      for col in numeric_columns:
-                        if bp_image_counter < bp_max_images:
-                          plt.figure(figsize=(10, 6))
-                          sns.boxplot(x=data[col])
-                          plt.title(f"Box Plot of {col}", fontsize=14, weight='bold')
-                          plt.xlabel("Value", fontsize=12)
-                          box_plot_path = f"{output_folder}/{col}_box_plot.png"
-                          plt.savefig(box_plot_path)
-                          images.append(box_plot_path)
-                          image_counter += 1
-                          bp_image_counter += 1
-                          plt.close()
-                    
-
+def generate_box_plots(data, numeric_columns, output_folder):
+    images = []
+    for col in numeric_columns:
+        plt.figure(figsize=(10, 6))
+        sns.boxplot(x=data[col])
+        plt.title(f"Box Plot of {col}", fontsize=14, weight='bold')
+        plt.xlabel("Value", fontsize=12)
+        box_plot_path = os.path.join(output_folder, f"{col}_box_plot.png")
+        plt.savefig(box_plot_path)
+        plt.close()
+        images.append(box_plot_path)
     return images
 
 
@@ -502,68 +460,8 @@ def create_enhanced_prompt(report, context_level='detailed'):
     
     return formatted_prompt
 
+
 def get_llm_analysis_suggestions(report):
-    """
-    Enhanced LLM analysis suggestions with more context.
-    
-    Args:
-        report (dict): Dataset analysis report
-    
-    Returns:
-        list: Suggested analysis types
-    """
-    # Retrieve the API token from environment variables
-    AIPROXY_TOKEN = os.environ.get("AIPROXY_TOKEN")
-    if not AIPROXY_TOKEN:
-        print("Error: AIPROXY_TOKEN environment variable is not set.")
-        sys.exit(1)
-
-    # Define the API endpoint
-    api_base = "https://aiproxy.sanand.workers.dev/openai/v1"
-    headers = {
-        "Authorization": f"Bearer {AIPROXY_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    # Compress data for token efficiency
-    _, compressed_summary = compress_data_for_llm(
-        pd.DataFrame(report.get('sample_data', {}))
-    )
-    
-    # Create enhanced prompt
-    enhanced_prompt = create_enhanced_prompt(report, 'detailed')
-    print(enhanced_prompt)
-    try:
-        payload = {
-            "model": "gpt-4o-mini",
-            "messages": [
-                {"role": "system", "content": "You are an efficient data analyst helping to optimize analysis suggestions."},
-                {"role": "user", "content": enhanced_prompt}
-            ]
-        }
-        
-        # Make the API call
-        response = requests.post(f"{api_base}/chat/completions", headers=headers, json=payload)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-
-        # Parse the response and extract suggestions
-        result = response.json()
-        suggestions = result["choices"][0]["message"]["content"].strip()
-        return suggestions.split("\n")  # Split suggestions into a list
-    except requests.exceptions.RequestException as e:
-        print(f"Error making API request: {e}")
-        sys.exit(1)
-    except KeyError as e:
-        print(f"Unexpected response structure: {e}")
-        sys.exit(1)
-        # Fallback suggestions
-        return [
-            "Correlation Analysis",
-            "Distribution Analysis", 
-            "Clustering Analysis", 
-            "PCA Visualization"
-        ]
-
-def get_llm_analysis_suggestions1(report):
     """
     Enhanced LLM analysis suggestions with robust error handling, retry logic, and optimized token usage.
 
@@ -685,62 +583,98 @@ def process_images(image_paths,output_folder):
             print(f"Error processing image {img_path}: {e}")
     return processed_images
 
-
-def ask_llm_for_story(report, images):
+def generate_insights_with_llm(report, images, data):
     """
-    Uses an LLM to generate insights and a story based on the dataset analysis and visualizations.
+    Generates a structured narrative using an LLM based on the dataset analysis and visualizations.
 
     Args:
-        report (dict): A dictionary containing basic analysis results.
-        images (list): A list of file paths to the generated visualizations.
+        report (dict): Analysis results.
+        images (list): Paths to generated visualizations.
+        data (pd.DataFrame): Original dataset.
 
     Returns:
-        str: The story generated by the LLM, referencing the provided visualizations.
+        str: Structured narrative from the LLM.
     """
-    # Retrieve the API token from environment variables
+    # Retrieve the API token
     AIPROXY_TOKEN = os.environ.get("AIPROXY_TOKEN")
     if not AIPROXY_TOKEN:
         print("Error: AIPROXY_TOKEN environment variable is not set.")
         sys.exit(1)
 
-    # Define the API endpoint
+    # API configuration
     api_base = "https://aiproxy.sanand.workers.dev/openai/v1"
     headers = {
         "Authorization": f"Bearer {AIPROXY_TOKEN}",
         "Content-Type": "application/json"
     }
 
-    try:
-        # Prepare the analysis request
-        analysis_request = f"""
-        Based on the following dataset analysis:
-        - Columns info: {report.get('columns_info', 'N/A')}
-        - Missing values: {report.get('missing_values', 'N/A')}
-        - Summary statistics: {report.get('summary', 'N/A')}
-        - Correlation matrix: {report.get('correlation_matrix', 'N/A')}
-        Visualizations created and their purposes:
-        {', '.join([f"Image {i+1}: {os.path.basename(img)}" for i, img in enumerate(images)]) if images else 'None'}.
-        Can you provide an excellent executive summary of insights and a cohesive story based on this analysis.
-        Can you provide insights and a cohesive story based on this analysis,clearly integrating each visualization into the narrative?
-        Provide insights on trends, outliers, comparisons, and their implications, interpret the patterns, potential causes, and their implications for strategic planning.
-        Explain insights in a narrative style, making it engaging and interesting.
-        Highlight Which relationships stand out, and what actionable insights can be derived for decision-making
-        """
+    # Prepare analysis details for the prompt
+    columns_info = report.get('columns_info', {})
+    missing_values = report.get('missing_values', {})
+    summary_stats = report.get('summary', {})
+    advanced_stats = report.get('advanced_stats', {})
 
-        # Prepare the payload for the API request
+    # Describe visualizations
+    visualization_descriptions = '\n'.join([
+        f"- **Image {i+1}:** {os.path.basename(img)}"
+        for i, img in enumerate(images)
+    ]) if images else 'None'
+
+    # Create a structured prompt
+    analysis_request = f"""
+You are a data analyst tasked with generating a comprehensive and coherent narrative report based on the following data analysis results.
+
+### Introduction
+Provide a brief overview of the dataset, including its context and the purpose of the analysis.
+
+### Dataset Overview
+- **Columns and Data Types:** {columns_info}
+- **Missing Values:** {missing_values}
+
+### Key Findings
+#### Summary Statistics
+Analyze the following summary statistics and highlight key insights:
+{summary_stats}
+
+#### Correlation Analysis
+Discuss significant correlations found in the data:
+{advanced_stats.get('advanced_correlations', {})}
+
+### Visualizations
+Integrate the following visualizations into your narrative, explaining what each illustrates:
+{visualization_descriptions}
+
+### Insights and Implications
+Interpret the findings, explaining the significance of trends, patterns, and outliers. Discuss potential causes and implications for stakeholders.
+
+### Recommendations
+Based on the analysis, provide actionable recommendations or strategies.
+
+### Conclusion
+Summarize the key takeaways from the analysis.
+
+**Note:** Ensure the narrative flows logically, is engaging, and uses a storytelling approach. Reference the visualizations appropriately within the narrative.
+"""
+
+    try:
+        # Prepare the payload
         payload = {
             "model": "gpt-4o-mini",
             "messages": [
-                {"role": "system", "content": "You are a data analyst summarizing insights from analyses and visualizations."},
+                {"role": "system", "content": "You are an expert data analyst and storyteller."},
                 {"role": "user", "content": analysis_request}
             ]
         }
 
         # Make the API call
-        response = requests.post(f"{api_base}/chat/completions", headers=headers, json=payload)
-        response.raise_for_status()  # Raise an error for HTTP issues
+        response = requests.post(
+            f"{api_base}/chat/completions",
+            headers=headers,
+            json=payload
+        )
+        response.raise_for_status()
 
-        # Parse the response and extract the story
+        # Extract the narrative
         result = response.json()
         story = result["choices"][0]["message"]["content"].strip()
         return story
@@ -751,6 +685,7 @@ def ask_llm_for_story(report, images):
     except KeyError as e:
         print(f"Unexpected response structure: {e}")
         sys.exit(1)
+
 
 def generate_summary_report(data):
     """
@@ -777,6 +712,7 @@ def generate_summary_report(data):
         }
 
     return sumreport
+
 
         
 def generate_readme(story, images, output_folder,report):
@@ -846,19 +782,19 @@ def main():
     report['advanced_stats'] = advanced_stats
     print("Asking LLM for suggestions...")
     # Get analysis suggestions
-    suggestions = get_llm_analysis_suggestions1(report)
+    suggestions = get_llm_analysis_suggestions(report)
     #print(f"LLM Suggestions: {suggestions}")
     #suggestions=['### Comprehensive Data Analysis Plan', '', '#### 1. **Data Cleaning and Preparation**', '   - Handle missing values through imputation or removal where appropriate.', '   - Convert categorical columns, if necessary, to appropriate formats for analysis (e.g., encoding factors).', '', '#### 2. **Statistical Analyses and Visualizations**', '   - **Descriptive Statistics**: Evaluate central tendencies, dispersion, and shape of the data to summarize trends.', '   - **Correlation Analysis**: ', '     - Compute Pearson/Spearman correlation coefficients to identify relationships between key variables (e.g., Log GDP per capita with Life Ladder).', '     - Visualize correlations using a heatmap for better understanding of relationships.', '   - **Distribution Analysis**:', '     - Visualize distributions of key variables using histograms and boxplots to identify outliers and understand data spread.', '     - Assess normality using Q-Q plots.', '   - **Cluster Analysis**:', '     - Perform k-means or hierarchical clustering to identify groups of countries based on similar attributes (e.g., socio-economic indicators).', '     - Plot clusters to visualize grouping and potential market segments.', '   - **Principal Component Analysis (PCA)**:', '     - Conduct PCA to reduce dimensionality while retaining variance to better visualize the essential patterns among variables.', '     - Plot PCA results to illustrate country position in a reduced dimension space.', '', '#### 3. **Analysis Objectives**', '   - **Identify Primary Patterns and Trends**:', '     - Use time series analysis to show trends in "Life Ladder" over years, highlighting years with significant changes.', '     - Analyze socio-economic patterns by grouping countries by region and visualizing averages.', '', '   - **Highlight Potential Correlations**:', '     - Present correlation findings in an actionable format. For example, indicate which attributes most strongly correlate with life satisfaction (Life Ladder), allowing policymakers to target areas for improvement.', '     - Suggest further research into the causal impact of these variables on life satisfaction.', '', '   - **Suggest Actionable Insights**:', '     - Provide clear recommendations based on correlation analysis. For instance, if higher social support correlates with higher Life Ladders, suggest investing in community support initiatives.', '     - Offer policy implications, such as improving economic conditions (as seen through GDP per capita) in countries with lower Life Ladder rankings.', '', '#### 4. **Narrative Requirements**', '   - Craft a narrative that takes stakeholders through the journey of data analysis, highlighting key findings in an easy-to-follow format.', '   - Emphasize the business or research implications by relating findings back to potential real-world applications (e.g., governmental policy changes, NGO focus areas).', '   - Create concise recommendations backed by data insights to guide decision-making processes.', '', '### Conclusion', 'The proposed analyses aim to provide a comprehensive view of the dataset that identifies key patterns, potential areas for improvement, and actionable strategies for stakeholders. The incorporation of various statistical techniques will lend credibility and depth to the analysis, ultimately informing decision-making and policy development.']
     #suggestions=['clustering']
     print("Performing suggested analyses...")
     # Perform analyses and generate visualizations
-    images = perform_suggested_analyses(data, suggestions, output_folder)
+    images = generate_visualizations(data, suggestions, output_folder)
 
     # Process images for reduced size and detail
     #compressed_images = process_images(images,output_folder)
     print("Generating insights using LLM...")
     # Generate insights
-    story = ask_llm_for_story(report, images)
+    story = generate_insights_with_llm(report, images,data)
     #story='xxx'
     print("Creating README.md...")
     # Create README
