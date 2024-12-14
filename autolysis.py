@@ -984,7 +984,7 @@ def process_visualizations_with_llm(images, report, data, advanced_stats):
         dict: A dictionary mapping image paths to LLM-generated insights.
     """
     insights = {}
-    max_count = 2
+    max_count = 1
     max_gen = 0
     for image_path in images:
         try:
@@ -1073,20 +1073,16 @@ def main():
 
     # Get suggestions for analysis
     suggestions = get_llm_analysis_suggestions(report)
-    #suggestions=['### Comprehensive Data Analysis Plan', '', '#### 1. **Data Cleaning and Preparation**', '   - Handle missing values through imputation or removal where appropriate.', '   - Convert categorical columns, if necessary, to appropriate formats for analysis (e.g., encoding factors).', '', '#### 2. **Statistical Analyses and Visualizations**', '   - **Descriptive Statistics**: Evaluate central tendencies, dispersion, and shape of the data to summarize trends.', '   - **Correlation Analysis**: ', '     - Compute Pearson/Spearman correlation coefficients to identify relationships between key variables (e.g., Log GDP per capita with Life Ladder).', '     - Visualize correlations using a heatmap for better understanding of relationships.', '   - **Distribution Analysis**:', '     - Visualize distributions of key variables using histograms and boxplots to identify outliers and understand data spread.', '     - Assess normality using Q-Q plots.', '   - **Cluster Analysis**:', '     - Perform k-means or hierarchical clustering to identify groups of countries based on similar attributes (e.g., socio-economic indicators).', '     - Plot clusters to visualize grouping and potential market segments.', '   - **Principal Component Analysis (PCA)**:', '     - Conduct PCA to reduce dimensionality while retaining variance to better visualize the essential patterns among variables.', '     - Plot PCA results to illustrate country position in a reduced dimension space.', '', '#### 3. **Analysis Objectives**', '   - **Identify Primary Patterns and Trends**:', '     - Use time series analysis to show trends in "Life Ladder" over years, highlighting years with significant changes.', '     - Analyze socio-economic patterns by grouping countries by region and visualizing averages.', '', '   - **Highlight Potential Correlations**:', '     - Present correlation findings in an actionable format. For example, indicate which attributes most strongly correlate with life satisfaction (Life Ladder), allowing policymakers to target areas for improvement.', '     - Suggest further research into the causal impact of these variables on life satisfaction.', '', '   - **Suggest Actionable Insights**:', '     - Provide clear recommendations based on correlation analysis. For instance, if higher social support correlates with higher Life Ladders, suggest investing in community support initiatives.', '     - Offer policy implications, such as improving economic conditions (as seen through GDP per capita) in countries with lower Life Ladder rankings.', '', '#### 4. **Narrative Requirements**', '   - Craft a narrative that takes stakeholders through the journey of data analysis, highlighting key findings in an easy-to-follow format.', '   - Emphasize the business or research implications by relating findings back to potential real-world applications (e.g., governmental policy changes, NGO focus areas).', '   - Create concise recommendations backed by data insights to guide decision-making processes.', '', '### Conclusion', 'The proposed analyses aim to provide a comprehensive view of the dataset that identifies key patterns, potential areas for improvement, and actionable strategies for stakeholders. The incorporation of various statistical techniques will lend credibility and depth to the analysis, ultimately informing decision-making and policy development.']
     # Perform analyses and generate visualizations
     images = generate_visualizations(data, suggestions, output_folder, config)
 
     # Process images for reduced size and detail
     compressed_images = process_images(images, output_folder)
-
-    #visualization_insights="{'/content/goodreads/correlation_heatmap.png': 'The low-resolution visualization appears cluttered with elements that are hard to discern. Key insights suggest potential trends in data distribution, but significant noise obscures details. A few anomalies may indicate spikes or drops in metrics, possibly highlighting areas of interest. The overall pattern seems nonlinear, suggesting variable relationships, potentially influenced by external factors. Further high-resolution analysis would be crucial for accurate interpretation and actionable insights.'}" 
-    # Generate insights using LLM
+     # Generate insights using LLM
     visualization_insights = process_visualizations_with_llm(compressed_images, report, data, advanced_stats)
 
     # Generate a structured narrative
     story = generate_insights_with_llm1(report, images, data, advanced_stats)
-    #story="xxx"
    
     # Create a summary README
     generate_readme(story, images, output_folder, sumreport, visualization_insights)
