@@ -35,24 +35,6 @@ if not AIPROXY_TOKEN:
 openai.api_base = API_URL
 openai.api_key = AIPROXY_TOKEN
 
-def validate_input_arguments():
-    """
-    Validates the input arguments provided via the command line.
-
-    Returns:
-        str: The validated file path.
-    """
-    if len(sys.argv) != 2:
-        print("Usage: python autolysis.py <dataset.csv>")
-        sys.exit(1)
-
-    file_path = sys.argv[1]
-    if not os.path.exists(file_path):
-        print(f"Error: File '{file_path}' not found.")
-        sys.exit(1)
-
-    return file_path
-
 def create_output_folder(file_path):
     """
     Creates an output folder named after the input CSV file, excluding the '.csv' extension.
@@ -104,7 +86,59 @@ def analyze_dataset(file_path):
         print(f"Error: {e}")
         sys.exit(1)
 
+def generate_visualizations(data, suggestions, output_folder,config=None):
+    """
+    Orchestrates the generation of visualizations based on suggestions.
 
+    Args:
+        data (DataFrame): The dataset to analyze.
+        suggestions (list): List of suggested analysis types.
+        output_folder (str): Path to save visualizations.
+
+    Returns:
+        list: Paths to the generated visualization files.
+    """
+    images = []
+    numeric_columns = data.select_dtypes(include=np.number)
+
+    # Load configuration with defaults
+    config = config or {}
+    max_images = config.get("max_images", 4)
+    image_counter = 0
+
+    for suggestion in suggestions:
+        if image_counter >= max_images:
+            break  # Stop generating images once the limit is reached
+
+        suggestion = suggestion.lower()
+        print(suggestion)
+
+        if re.search(r"correlation", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
+              images.extend(generate_correlation_heatmap(data, numeric_columns, output_folder))
+              image_counter += 1
+
+        elif re.search(r"distribution", suggestion, re.IGNORECASE) and not numeric_columns.empty:
+              images.extend(generate_distribution_plots(data, numeric_columns, output_folder))
+              image_counter += 1
+             
+
+        elif re.search(r"cluster", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
+              images.extend(generate_cluster_visualization(data, numeric_columns, output_folder))
+              image_counter += 1
+
+        elif re.search(r"pca", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
+              images.extend(generate_pca_visualization(data, numeric_columns, output_folder))
+              image_counter += 1
+
+        elif re.search(r"time series", suggestion, re.IGNORECASE) and 'date' in data.columns:
+              images.extend(generate_time_series_plot(data, numeric_columns, output_folder))
+              image_counter += 1
+
+        elif re.search(r"boxplot", suggestion, re.IGNORECASE) and not numeric_columns.empty:
+              images.extend(generate_box_plots(data, numeric_columns, output_folder))
+              image_counter += 1
+
+    return images
 
 def generate_correlation_heatmap(data, numeric_columns, output_folder):
     if numeric_columns.shape[1] > 1:
@@ -113,7 +147,6 @@ def generate_correlation_heatmap(data, numeric_columns, output_folder):
         if cor_image_counter < cor_max_images:
           corr_matrix = numeric_columns.corr()
           plt.figure(figsize=(10, 8))
-          #sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", cbar_kws={'label': 'Correlation Coefficient'})
           sns.heatmap(corr_matrix, annot=True, cmap="viridis", cbar_kws={'label': 'Correlation Coefficient'})
           # Annotate strong correlations
           for i in range(len(corr_matrix.columns)):
@@ -141,8 +174,7 @@ def generate_distribution_plots(data, numeric_columns, output_folder):
               col_range = data[col].max() - data[col].min()
               if col_range > 0:
                   plt.figure(figsize=(10, 6))
-                  #sns.histplot(data[col], kde=True, binwidth=col_range / 30, label='Histogram')
-                  sns.histplot(data[col], kde=True, binwidth=col_range / 30, label='Histogram', color='steelblue')
+                  sns.histplot(data[col], kde=True, binwidth=col_range / 30, label='Histogram')
                   mean_val = data[col].mean()
                   median_val = data[col].median()
                   plt.axvline(mean_val, color='red', linestyle='--', label=f'Mean: {mean_val:.2f}')
@@ -174,7 +206,6 @@ def generate_cluster_visualization(data, numeric_columns, output_folder):
               x=numeric_columns.iloc[:, 0],
               y=numeric_columns.iloc[:, 1],
               hue=data['Cluster'],
-              #palette='tab10',
               palette='Set2',
               s=100
           )
@@ -259,64 +290,11 @@ def generate_box_plots(data, numeric_columns, output_folder):
           images.append(box_plot_path)
     return images
 
-def generate_visualizations(data, suggestions, output_folder,config=None):
-    """
-    Orchestrates the generation of visualizations based on suggestions.
-
-    Args:
-        data (DataFrame): The dataset to analyze.
-        suggestions (list): List of suggested analysis types.
-        output_folder (str): Path to save visualizations.
-
-    Returns:
-        list: Paths to the generated visualization files.
-    """
-    images = []
-    numeric_columns = data.select_dtypes(include=np.number)
-
-    # Load configuration with defaults
-    config = config or {}
-    max_images = config.get("max_images", 4)
-    image_counter = 0
-
-    for suggestion in suggestions:
-        if image_counter >= max_images:
-            break  # Stop generating images once the limit is reached
-
-        suggestion = suggestion.lower()
-        print(suggestion)
-
-        if re.search(r"correlation", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
-              images.extend(generate_correlation_heatmap(data, numeric_columns, output_folder))
-              image_counter += 1
-
-        elif re.search(r"distribution", suggestion, re.IGNORECASE) and not numeric_columns.empty:
-              images.extend(generate_distribution_plots(data, numeric_columns, output_folder))
-              image_counter += 1
-             
-
-        elif re.search(r"cluster", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
-              images.extend(generate_cluster_visualization(data, numeric_columns, output_folder))
-              image_counter += 1
-
-        elif re.search(r"pca", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
-              images.extend(generate_pca_visualization(data, numeric_columns, output_folder))
-              image_counter += 1
-
-        elif re.search(r"time series", suggestion, re.IGNORECASE) and 'date' in data.columns:
-              images.extend(generate_time_series_plot(data, numeric_columns, output_folder))
-              image_counter += 1
-
-        elif re.search(r"boxplot", suggestion, re.IGNORECASE) and not numeric_columns.empty:
-              images.extend(generate_box_plots(data, numeric_columns, output_folder))
-              image_counter += 1
-
-    return images
 
 def advanced_statistical_analysis(data):
     """
     Perform advanced statistical analyses beyond basic descriptive statistics.
-    
+    Including Spearman and Kendall
     Args:
         data (pd.DataFrame): Input dataset
     
@@ -351,15 +329,6 @@ def advanced_statistical_analysis(data):
     
     # Advanced Outlier Detection
     def detect_outliers(series):
-        """
-        Detects outliers in a numeric series using both IQR and Z-score methods.
-
-        Args:
-            series (pd.Series): Numeric series to analyze.
-
-        Returns:
-            dict: Counts of outliers detected by IQR and Z-score methods, and total unique outliers.
-        """
         if series.empty:
             return {}
         
@@ -387,12 +356,6 @@ def advanced_statistical_analysis(data):
     
     # Advanced Correlation Analysis
     if len(numeric_cols) > 1:
-        """
-        Calculates Spearman and Kendall correlations for numeric columns.
-
-        Returns:
-            dict: Correlation matrices for Spearman and Kendall methods.
-        """
         results['advanced_correlations'] = {
             'spearman_correlation': data[numeric_cols].corr(method='spearman').to_dict(),
             'kendall_correlation': pd.DataFrame({
@@ -403,6 +366,8 @@ def advanced_statistical_analysis(data):
                 } for col1 in numeric_cols
             }).to_dict()
         }
+
+    return results
 
 
 def compress_data_for_llm(data, max_rows=3):
@@ -664,12 +629,12 @@ def prepare_structured_prompt(report, images, data, advanced_stats):
 
     return f"""
 You are a data analyst tasked with generating a concise and actionable narrative report.
-Can you provide an excellent executive summary of insights and a cohesive story based on this analysis.
-Can you provide insights and a cohesive story based on this analysis,clearly integrating each visualization into the narrative?
-Provide insights on trends, outliers, comparisons, and their implications, interpret the patterns, potential causes, and their implications for strategic planning.
-Explain insights in a narrative style, making it engaging and interesting.
-Highlight Which relationships stand out, and what actionable insights can be derived for decision-making
-
+Your report should include the following elements:
+Your report should include an excellent executive summary of insights and a cohesive story based on this analysis.
+Your report should include insights and a cohesive story based on this analysis,clearly integrating each visualization into the narrative
+Your report should Provide insights on trends, outliers, comparisons, and their implications, interpret the patterns, potential causes, and their implications for strategic planning.
+Your report should Explain insights in a narrative style, making it engaging and interesting.
+Your report shouldHighlight Which relationships stand out, and what actionable insights can be derived for decision-making
 ### Dataset Overview
 - **Columns and Data Types:** {list(columns_info.keys())}
 - **Missing Values:** {missing_values}
@@ -688,67 +653,6 @@ Suggest actionable insights based on the findings and visualizations.
 Summarize the key takeaways and their implications for stakeholders.
 """
 
-
-def prepare_structured_prompt(report, images, data, advanced_stats):
-    """
-    Prepare a structured and concise prompt for the LLM, emphasizing storytelling, visualization integration, and actionable insights.
-    """
-    # Extract key details from the report
-    columns_info = report.get('columns_info', {})
-    missing_values = report.get('missing_values', {})
-    summary_stats = report.get('summary', {})
-    visualization_descriptions = '\n'.join(
-        [f"- **{os.path.basename(img)}:** Generated during analysis." for img in images]
-    ) if images else 'None'
-
-      
-    # Simplify advanced statistics
-    correlations = advanced_stats.get("advanced_correlations", {}).get("spearman_correlation", "N/A")
-    if isinstance(correlations, dict):
-        correlation_details = ', '.join(
-            [f"{var}: {val:.2f}" for var, val in correlations.items() if isinstance(val, (int, float)) and abs(val) > 0.5]
-        ) or "No significant correlations found."
-    else:
-        correlation_details = "No significant correlations found."
-    # Generate the structured prompt
-    return f"""
-You are a data analyst tasked with generating a concise and actionable narrative report.
-Your report should include the following elements:
-Your report should include an excellent executive summary of insights and a cohesive story based on this analysis.
-Your report should include insights and a cohesive story based on this analysis,clearly integrating each visualization into the narrative
-Your report should Provide insights on trends, outliers, comparisons, and their implications, interpret the patterns, potential causes, and their implications for strategic planning.
-Your report should Explain insights in a narrative style, making it engaging and interesting.
-Your report shouldHighlight Which relationships stand out, and what actionable insights can be derived for decision-making
-
-### Dataset Overview
-- **Columns and Data Types:** {list(columns_info.keys())}
-- **Missing Values:** {missing_values}
-
-### Key Insights
-1. **Trends**:
-   - Summarize key trends found in the dataset. For example, numeric columns like 'overall' and 'quality' have average scores around 3.2.
-
-2. **Correlations**:
-   - Significant relationships identified:
-     {correlation_details}
-
-3. **Outliers**:
-   - Note any anomalies or outliers and their potential impact on the analysis.
-
-### Visualizations
-- The following visualizations were created during the analysis:
-{visualization_descriptions}
-
-- Please integrate these visualizations into your narrative, referencing specific filenames (e.g., "Refer to **Correlation_Heatmap.png** for further insights.").
-
-### Recommendations
-- Provide actionable insights based on the findings. For instance:
-  - Address missing data in critical columns like 'date' to improve the reliability of the analysis.
-  - Leverage relationships between strongly correlated variables to optimize outcomes.
-
-### Conclusion
-- Summarize the key takeaways, emphasizing their implications for decision-making and future actions.
-"""
 
 def generate_insights_with_llm1(report, images, data,advanced_stats):
     """
@@ -823,7 +727,6 @@ def generate_insights_with_llm1(report, images, data,advanced_stats):
 
 
 
-
 def generate_summary_report(data):
     """
     Generates a summary report focusing on summary statistics and advanced statistics.
@@ -849,6 +752,7 @@ def generate_summary_report(data):
         }
 
     return sumreport
+
 
 
 
@@ -984,7 +888,7 @@ def process_visualizations_with_llm(images, report, data, advanced_stats):
         dict: A dictionary mapping image paths to LLM-generated insights.
     """
     insights = {}
-    max_count = 1
+    max_count = 2
     max_gen = 0
     for image_path in images:
         try:
@@ -1042,52 +946,68 @@ def generate_readme(story, images,output_folder,report,visualization_insights):
                 f.write("### Covariance Matrix\n")
                 covariance_df = pd.DataFrame(report['advanced_statistics']['covariance_matrix']).round(3)
                 f.write(covariance_df.to_markdown() + "\n\n")
-
-  
-
+     
+# Existing methods like create_output_folder, analyze_dataset, 
+# perform_suggested_analyses, ask_llm_for_story, generate_readme 
+# remain largely the same
 
 def main():
     """
     Enhanced main function to incorporate advanced analysis techniques.
     """
-    # Load user configuration
+     # Load user configuration
     user_config = {
-        "max_images": 4,  # User-specific overrides
-        "max_rows": 2,
+        "max_images": 1,  # User-specific overrides
+        "max_rows": 1,
     }
     config = user_config
 
-    # Validate command-line arguments
-    file_path = validate_input_arguments()
+    if len(sys.argv) != 2:
+        print("Usage: python autolysis.py <dataset.csv>")
+        sys.exit(1)
+
+    file_path = sys.argv[1]
+    if not os.path.exists(file_path):
+        print(f"Error: File '{file_path}' not found.")
+        sys.exit(1)
 
     # Create output folder
     output_folder = create_output_folder(file_path)
-
-    # Analyze the dataset
+    print("Analyzing dataset...")
+    # Load and analyze dataset
     data, report = analyze_dataset(file_path)
-
-    # Generate summary and advanced statistics
-    sumreport = generate_summary_report(data)
+    
+    sumreport=generate_summary_report(data)
+    # Perform advanced statistical analysis
     advanced_stats = advanced_statistical_analysis(data)
+    
+    # Update report with advanced statistics
     report['advanced_stats'] = advanced_stats
-
-    # Get suggestions for analysis
+    print("Asking LLM for suggestions...")
+    # Get analysis suggestions
     suggestions = get_llm_analysis_suggestions(report)
+    #print(f"LLM Suggestions: {suggestions}")
+    #suggestions=['### Comprehensive Data Analysis Plan', '', '#### 1. **Data Cleaning and Preparation**', '   - Handle missing values through imputation or removal where appropriate.', '   - Convert categorical columns, if necessary, to appropriate formats for analysis (e.g., encoding factors).', '', '#### 2. **Statistical Analyses and Visualizations**', '   - **Descriptive Statistics**: Evaluate central tendencies, dispersion, and shape of the data to summarize trends.', '   - **Correlation Analysis**: ', '     - Compute Pearson/Spearman correlation coefficients to identify relationships between key variables (e.g., Log GDP per capita with Life Ladder).', '     - Visualize correlations using a heatmap for better understanding of relationships.', '   - **Distribution Analysis**:', '     - Visualize distributions of key variables using histograms and boxplots to identify outliers and understand data spread.', '     - Assess normality using Q-Q plots.', '   - **Cluster Analysis**:', '     - Perform k-means or hierarchical clustering to identify groups of countries based on similar attributes (e.g., socio-economic indicators).', '     - Plot clusters to visualize grouping and potential market segments.', '   - **Principal Component Analysis (PCA)**:', '     - Conduct PCA to reduce dimensionality while retaining variance to better visualize the essential patterns among variables.', '     - Plot PCA results to illustrate country position in a reduced dimension space.', '', '#### 3. **Analysis Objectives**', '   - **Identify Primary Patterns and Trends**:', '     - Use time series analysis to show trends in "Life Ladder" over years, highlighting years with significant changes.', '     - Analyze socio-economic patterns by grouping countries by region and visualizing averages.', '', '   - **Highlight Potential Correlations**:', '     - Present correlation findings in an actionable format. For example, indicate which attributes most strongly correlate with life satisfaction (Life Ladder), allowing policymakers to target areas for improvement.', '     - Suggest further research into the causal impact of these variables on life satisfaction.', '', '   - **Suggest Actionable Insights**:', '     - Provide clear recommendations based on correlation analysis. For instance, if higher social support correlates with higher Life Ladders, suggest investing in community support initiatives.', '     - Offer policy implications, such as improving economic conditions (as seen through GDP per capita) in countries with lower Life Ladder rankings.', '', '#### 4. **Narrative Requirements**', '   - Craft a narrative that takes stakeholders through the journey of data analysis, highlighting key findings in an easy-to-follow format.', '   - Emphasize the business or research implications by relating findings back to potential real-world applications (e.g., governmental policy changes, NGO focus areas).', '   - Create concise recommendations backed by data insights to guide decision-making processes.', '', '### Conclusion', 'The proposed analyses aim to provide a comprehensive view of the dataset that identifies key patterns, potential areas for improvement, and actionable strategies for stakeholders. The incorporation of various statistical techniques will lend credibility and depth to the analysis, ultimately informing decision-making and policy development.']
+    #suggestions=['correlation']
+    print("Performing suggested analyses...")
     # Perform analyses and generate visualizations
-    images = generate_visualizations(data, suggestions, output_folder, config)
+    images = generate_visualizations(data, suggestions, output_folder,config)
 
     # Process images for reduced size and detail
-    compressed_images = process_images(images, output_folder)
-     # Generate insights using LLM
-    visualization_insights = process_visualizations_with_llm(compressed_images, report, data, advanced_stats)
-
-    # Generate a structured narrative
-    story = generate_insights_with_llm1(report, images, data, advanced_stats)
-   
-    # Create a summary README
-    generate_readme(story, images, output_folder, sumreport, visualization_insights)
+    compressed_images = process_images(images,output_folder)
+    print("Generating insights using LLM...")
+    visualization_insights = process_visualizations_with_llm(compressed_images,report, data,advanced_stats)
+    #visualization_insights={'/content/goodreads/correlation_heatmap.png': 'The low-resolution visualization appears cluttered with elements that are hard to discern. Key insights suggest potential trends in data distribution, but significant noise obscures details. A few anomalies may indicate spikes or drops in metrics, possibly highlighting areas of interest. The overall pattern seems nonlinear, suggesting variable relationships, potentially influenced by external factors. Further high-resolution analysis would be crucial for accurate interpretation and actionable insights.'}
+    
+    # Generate insights
+    print("Generating insights1 using LLM...")
+    story = generate_insights_with_llm1(report, images, data,advanced_stats)
+    #story='xxx'
+    print("Creating README.md...")
+    # Create README
+    generate_readme(story, images, output_folder,sumreport,visualization_insights)
 
     print(f"Analysis complete. Outputs saved in {output_folder}.")
-   
+
 if __name__ == "__main__":
     main()
