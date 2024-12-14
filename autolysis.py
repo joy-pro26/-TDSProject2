@@ -80,7 +80,6 @@ def analyze_dataset(file_path):
             "columns_info": {col: str(data[col].dtype) for col in data.columns},
             "sample_data": data.head(3).to_dict()  # Reduce sample data size to 3 rows
         }
-
         return data, report
     except Exception as e:
         print(f"Error: {e}")
@@ -121,7 +120,6 @@ def generate_visualizations(data, suggestions, output_folder,config=None):
               images.extend(generate_distribution_plots(data, numeric_columns, output_folder))
               image_counter += 1
              
-
         elif re.search(r"cluster", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
               images.extend(generate_cluster_visualization(data, numeric_columns, output_folder))
               image_counter += 1
@@ -369,7 +367,6 @@ def advanced_statistical_analysis(data):
 
     return results
 
-
 def compress_data_for_llm(data, max_rows=3):
     """
     Compress dataset for token-efficient LLM processing by sampling rows 
@@ -407,7 +404,6 @@ def compress_data_for_llm(data, max_rows=3):
     }
 
     return compressed_data, summary
-
 
 
 def create_enhanced_prompt(report, context_level='detailed'):
@@ -579,7 +575,7 @@ def parse_llm_response(response):
     except (KeyError, ValueError, AttributeError) as e:
         raise ValueError(f"Error parsing LLM response: {e}")
 
-
+# Function FOR API REQUEST
 def make_api_request_with_retry(url, headers, payload, retries=3):
     """
     Makes an API request with retry logic for resilience.
@@ -611,7 +607,7 @@ def process_images(image_paths,output_folder):
             print(f"Error processing image {img_path}: {e}")
     return processed_images
 
-
+# Function for structured  prompt
 
 def prepare_structured_prompt(report, images, data, advanced_stats):
     """
@@ -653,6 +649,7 @@ Suggest actionable insights based on the findings and visualizations.
 Summarize the key takeaways and their implications for stakeholders.
 """
 
+# Function for Generating Insights
 
 def generate_insights_with_llm1(report, images, data,advanced_stats):
     """
@@ -725,7 +722,7 @@ def generate_insights_with_llm1(report, images, data,advanced_stats):
         print(f"Unexpected response structure: {e}")
         sys.exit(1)
 
-
+# Function for Generating Report
 
 def generate_summary_report(data):
     """
@@ -753,8 +750,7 @@ def generate_summary_report(data):
 
     return sumreport
 
-
-
+# Function for Encoding image
 
 def preprocess_and_encode_png(image_path, max_size=(350, 350)):
     """
@@ -790,9 +786,7 @@ def preprocess_and_encode_png(image_path, max_size=(350, 350)):
         print(f"Error processing image: {e}")
         return None
 
-
-
-
+# Function for Analying images
 
 def analyze_low_res_visualization(image_path):
     try:
@@ -809,14 +803,6 @@ def analyze_low_res_visualization(image_path):
         # Validate image file
         if not os.path.isfile(image_path):
             raise ValueError(f"The file {image_path} does not exist or is not a valid file.")
-
-        # Preprocess: Reduce the resolution to 512x512 while maintaining aspect ratio
-        with Image.open(image_path) as img:
-            img = img.convert("RGB")  # Ensure consistent format
-            img.thumbnail((512, 512))  # Maintains aspect ratio
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
-                temp_path = temp_file.name
-                img.save(temp_path)
 
         encoded_image = preprocess_and_encode_png(image_path)
 
@@ -873,7 +859,7 @@ def analyze_low_res_visualization(image_path):
 
     return "Error: Unable to process the request."
 
-
+# Function for  Processing image analysis
 def process_visualizations_with_llm(images, report, data, advanced_stats):
     """
     Processes a list of visualizations using an LLM and returns insights.
@@ -905,7 +891,7 @@ def process_visualizations_with_llm(images, report, data, advanced_stats):
 
     return insights
 
-        
+# Function for  Generate Readme       
 def generate_readme(story, images,output_folder,report,visualization_insights):
     """
     Generates a README.md file summarizing the dataset analysis, insights, and visualizations.
@@ -947,9 +933,8 @@ def generate_readme(story, images,output_folder,report,visualization_insights):
                 covariance_df = pd.DataFrame(report['advanced_statistics']['covariance_matrix']).round(3)
                 f.write(covariance_df.to_markdown() + "\n\n")
      
-# Existing methods like create_output_folder, analyze_dataset, 
-# perform_suggested_analyses, ask_llm_for_story, generate_readme 
-# remain largely the same
+
+# Main function
 
 def main():
     """
@@ -957,7 +942,7 @@ def main():
     """
      # Load user configuration
     user_config = {
-        "max_images": 1,  # User-specific overrides
+        "max_images": 4,  # User-specific overrides
         "max_rows": 1,
     }
     config = user_config
