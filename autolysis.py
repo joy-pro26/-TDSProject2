@@ -18,7 +18,8 @@ from PIL import Image
 # Add additional scientific computing imports
 from scipy.stats import spearmanr, kendalltau, tsem
 from sklearn.preprocessing import StandardScaler
-
+import logging
+import tempfile
 # Seaborn theme setup
 sns.set_theme(style="whitegrid")
 
@@ -33,6 +34,24 @@ if not AIPROXY_TOKEN:
 
 openai.api_base = API_URL
 openai.api_key = AIPROXY_TOKEN
+
+def validate_input_arguments():
+    """
+    Validates the input arguments provided via the command line.
+
+    Returns:
+        str: The validated file path.
+    """
+    if len(sys.argv) != 2:
+        print("Usage: python autolysis.py <dataset.csv>")
+        sys.exit(1)
+
+    file_path = sys.argv[1]
+    if not os.path.exists(file_path):
+        print(f"Error: File '{file_path}' not found.")
+        sys.exit(1)
+
+    return file_path
 
 def create_output_folder(file_path):
     """
@@ -85,59 +104,7 @@ def analyze_dataset(file_path):
         print(f"Error: {e}")
         sys.exit(1)
 
-def generate_visualizations(data, suggestions, output_folder,config=None):
-    """
-    Orchestrates the generation of visualizations based on suggestions.
 
-    Args:
-        data (DataFrame): The dataset to analyze.
-        suggestions (list): List of suggested analysis types.
-        output_folder (str): Path to save visualizations.
-
-    Returns:
-        list: Paths to the generated visualization files.
-    """
-    images = []
-    numeric_columns = data.select_dtypes(include=np.number)
-
-    # Load configuration with defaults
-    config = config or {}
-    max_images = config.get("max_images", 6)
-    image_counter = 0
-
-    for suggestion in suggestions:
-        if image_counter >= max_images:
-            break  # Stop generating images once the limit is reached
-
-        suggestion = suggestion.lower()
-        print(suggestion)
-
-        if re.search(r"correlation", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
-              images.extend(generate_correlation_heatmap(data, numeric_columns, output_folder))
-              image_counter += 1
-
-        elif re.search(r"distribution", suggestion, re.IGNORECASE) and not numeric_columns.empty:
-              images.extend(generate_distribution_plots(data, numeric_columns, output_folder))
-              image_counter += 1
-             
-
-        elif re.search(r"cluster", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
-              images.extend(generate_cluster_visualization(data, numeric_columns, output_folder))
-              image_counter += 1
-
-        elif re.search(r"pca", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
-              images.extend(generate_pca_visualization(data, numeric_columns, output_folder))
-              image_counter += 1
-
-        elif re.search(r"time series", suggestion, re.IGNORECASE) and 'date' in data.columns:
-              images.extend(generate_time_series_plot(data, numeric_columns, output_folder))
-              image_counter += 1
-
-        elif re.search(r"boxplot", suggestion, re.IGNORECASE) and not numeric_columns.empty:
-              images.extend(generate_box_plots(data, numeric_columns, output_folder))
-              image_counter += 1
-
-    return images
 
 def generate_correlation_heatmap(data, numeric_columns, output_folder):
     if numeric_columns.shape[1] > 1:
@@ -146,7 +113,8 @@ def generate_correlation_heatmap(data, numeric_columns, output_folder):
         if cor_image_counter < cor_max_images:
           corr_matrix = numeric_columns.corr()
           plt.figure(figsize=(10, 8))
-          sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", cbar_kws={'label': 'Correlation Coefficient'})
+          #sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", cbar_kws={'label': 'Correlation Coefficient'})
+          sns.heatmap(corr_matrix, annot=True, cmap="viridis", cbar_kws={'label': 'Correlation Coefficient'})
           # Annotate strong correlations
           for i in range(len(corr_matrix.columns)):
               for j in range(i):
@@ -173,7 +141,8 @@ def generate_distribution_plots(data, numeric_columns, output_folder):
               col_range = data[col].max() - data[col].min()
               if col_range > 0:
                   plt.figure(figsize=(10, 6))
-                  sns.histplot(data[col], kde=True, binwidth=col_range / 30, label='Histogram')
+                  #sns.histplot(data[col], kde=True, binwidth=col_range / 30, label='Histogram')
+                  sns.histplot(data[col], kde=True, binwidth=col_range / 30, label='Histogram', color='steelblue')
                   mean_val = data[col].mean()
                   median_val = data[col].median()
                   plt.axvline(mean_val, color='red', linestyle='--', label=f'Mean: {mean_val:.2f}')
@@ -205,7 +174,8 @@ def generate_cluster_visualization(data, numeric_columns, output_folder):
               x=numeric_columns.iloc[:, 0],
               y=numeric_columns.iloc[:, 1],
               hue=data['Cluster'],
-              palette='tab10',
+              #palette='tab10',
+              palette='Set2',
               s=100
           )
           plt.title("Cluster Visualization", fontsize=14, weight='bold')
@@ -289,6 +259,59 @@ def generate_box_plots(data, numeric_columns, output_folder):
           images.append(box_plot_path)
     return images
 
+def generate_visualizations(data, suggestions, output_folder,config=None):
+    """
+    Orchestrates the generation of visualizations based on suggestions.
+
+    Args:
+        data (DataFrame): The dataset to analyze.
+        suggestions (list): List of suggested analysis types.
+        output_folder (str): Path to save visualizations.
+
+    Returns:
+        list: Paths to the generated visualization files.
+    """
+    images = []
+    numeric_columns = data.select_dtypes(include=np.number)
+
+    # Load configuration with defaults
+    config = config or {}
+    max_images = config.get("max_images", 4)
+    image_counter = 0
+
+    for suggestion in suggestions:
+        if image_counter >= max_images:
+            break  # Stop generating images once the limit is reached
+
+        suggestion = suggestion.lower()
+        print(suggestion)
+
+        if re.search(r"correlation", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
+              images.extend(generate_correlation_heatmap(data, numeric_columns, output_folder))
+              image_counter += 1
+
+        elif re.search(r"distribution", suggestion, re.IGNORECASE) and not numeric_columns.empty:
+              images.extend(generate_distribution_plots(data, numeric_columns, output_folder))
+              image_counter += 1
+             
+
+        elif re.search(r"cluster", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
+              images.extend(generate_cluster_visualization(data, numeric_columns, output_folder))
+              image_counter += 1
+
+        elif re.search(r"pca", suggestion, re.IGNORECASE) and len(numeric_columns.columns) > 1:
+              images.extend(generate_pca_visualization(data, numeric_columns, output_folder))
+              image_counter += 1
+
+        elif re.search(r"time series", suggestion, re.IGNORECASE) and 'date' in data.columns:
+              images.extend(generate_time_series_plot(data, numeric_columns, output_folder))
+              image_counter += 1
+
+        elif re.search(r"boxplot", suggestion, re.IGNORECASE) and not numeric_columns.empty:
+              images.extend(generate_box_plots(data, numeric_columns, output_folder))
+              image_counter += 1
+
+    return images
 
 def advanced_statistical_analysis(data):
     """
@@ -328,6 +351,15 @@ def advanced_statistical_analysis(data):
     
     # Advanced Outlier Detection
     def detect_outliers(series):
+        """
+        Detects outliers in a numeric series using both IQR and Z-score methods.
+
+        Args:
+            series (pd.Series): Numeric series to analyze.
+
+        Returns:
+            dict: Counts of outliers detected by IQR and Z-score methods, and total unique outliers.
+        """
         if series.empty:
             return {}
         
@@ -355,6 +387,12 @@ def advanced_statistical_analysis(data):
     
     # Advanced Correlation Analysis
     if len(numeric_cols) > 1:
+        """
+        Calculates Spearman and Kendall correlations for numeric columns.
+
+        Returns:
+            dict: Correlation matrices for Spearman and Kendall methods.
+        """
         results['advanced_correlations'] = {
             'spearman_correlation': data[numeric_cols].corr(method='spearman').to_dict(),
             'kendall_correlation': pd.DataFrame({
@@ -366,7 +404,67 @@ def advanced_statistical_analysis(data):
             }).to_dict()
         }
 
+    # Feature Importance Analysis (Random Forest)
+    if 'target_column' in data.columns:
+        """
+        Identifies feature importance for predictors using Random Forest regression.
+
+        Args:
+            target_column (str): The target variable in the dataset.
+
+        Returns:
+            dict: Importance scores for each predictor variable.
+        """
+        print ('feature_importance')
+        from sklearn.ensemble import RandomForestRegressor
+        X = data.drop(columns=['target_column']).select_dtypes(include=[np.number]).fillna(0)
+        y = data['target_column'].fillna(0)
+        model = RandomForestRegressor(random_state=42)
+        model.fit(X, y)
+        results['feature_importance'] = dict(zip(X.columns, model.feature_importances_))
+
+    # Time-Series Decomposition
+    if 'date' in data.columns and 'value_column' in data.columns:
+        """
+        Decomposes a time-series column into trend, seasonal, and residual components.
+
+        Args:
+            date (str): The column representing time.
+            value_column (str): The column representing the values over time.
+
+        Returns:
+            dict: Lists of trend, seasonal, and residual components.
+        """
+        from statsmodels.tsa.seasonal import seasonal_decompose
+        data['date'] = pd.to_datetime(data['date'], errors='coerce')
+        data = data.dropna(subset=['date', 'value_column']).sort_values('date')
+        decomposition = seasonal_decompose(data['value_column'], model='additive', period=12)
+        results['time_series_decomposition'] = {
+            'trend': decomposition.trend.tolist(),
+            'seasonal': decomposition.seasonal.tolist(),
+            'residual': decomposition.resid.tolist()
+        }
+
+    # Group Comparison Analysis (ANOVA)
+    if 'group_column' in data.columns and 'value_column' in data.columns:
+        """
+        Compares group means using one-way ANOVA.
+
+        Args:
+            group_column (str): The column representing groups.
+            value_column (str): The column representing numeric values.
+
+        Returns:
+            dict: F-statistic and p-value of the ANOVA test.
+        """
+        from scipy.stats import f_oneway
+        groups = [group['value_column'].dropna() for _, group in data.groupby('group_column')]
+        if len(groups) > 1:
+            f_stat, p_value = f_oneway(*groups)
+            results['group_comparison'] = {'f_stat': f_stat, 'p_value': p_value}
+        print ('anov')
     return results
+
 
 
 def compress_data_for_llm(data, max_rows=3):
@@ -653,6 +751,67 @@ Summarize the key takeaways and their implications for stakeholders.
 """
 
 
+def prepare_structured_prompt(report, images, data, advanced_stats):
+    """
+    Prepare a structured and concise prompt for the LLM, emphasizing storytelling, visualization integration, and actionable insights.
+    """
+    # Extract key details from the report
+    columns_info = report.get('columns_info', {})
+    missing_values = report.get('missing_values', {})
+    summary_stats = report.get('summary', {})
+    visualization_descriptions = '\n'.join(
+        [f"- **{os.path.basename(img)}:** Generated during analysis." for img in images]
+    ) if images else 'None'
+
+      
+    # Simplify advanced statistics
+    correlations = advanced_stats.get("advanced_correlations", {}).get("spearman_correlation", "N/A")
+    if isinstance(correlations, dict):
+        correlation_details = ', '.join(
+            [f"{var}: {val:.2f}" for var, val in correlations.items() if isinstance(val, (int, float)) and abs(val) > 0.5]
+        ) or "No significant correlations found."
+    else:
+        correlation_details = "No significant correlations found."
+    # Generate the structured prompt
+    return f"""
+You are a data analyst tasked with generating a concise and actionable narrative report.
+Your report should include the following elements:
+Your report should include an excellent executive summary of insights and a cohesive story based on this analysis.
+Your report should include insights and a cohesive story based on this analysis,clearly integrating each visualization into the narrative
+Your report should Provide insights on trends, outliers, comparisons, and their implications, interpret the patterns, potential causes, and their implications for strategic planning.
+Your report should Explain insights in a narrative style, making it engaging and interesting.
+Your report shouldHighlight Which relationships stand out, and what actionable insights can be derived for decision-making
+
+### Dataset Overview
+- **Columns and Data Types:** {list(columns_info.keys())}
+- **Missing Values:** {missing_values}
+
+### Key Insights
+1. **Trends**:
+   - Summarize key trends found in the dataset. For example, numeric columns like 'overall' and 'quality' have average scores around 3.2.
+
+2. **Correlations**:
+   - Significant relationships identified:
+     {correlation_details}
+
+3. **Outliers**:
+   - Note any anomalies or outliers and their potential impact on the analysis.
+
+### Visualizations
+- The following visualizations were created during the analysis:
+{visualization_descriptions}
+
+- Please integrate these visualizations into your narrative, referencing specific filenames (e.g., "Refer to **Correlation_Heatmap.png** for further insights.").
+
+### Recommendations
+- Provide actionable insights based on the findings. For instance:
+  - Address missing data in critical columns like 'date' to improve the reliability of the analysis.
+  - Leverage relationships between strongly correlated variables to optimize outcomes.
+
+### Conclusion
+- Summarize the key takeaways, emphasizing their implications for decision-making and future actions.
+"""
+
 def generate_insights_with_llm1(report, images, data,advanced_stats):
     """
     Generates a structured narrative using an LLM based on the dataset analysis and visualizations.
@@ -724,71 +883,7 @@ def generate_insights_with_llm1(report, images, data,advanced_stats):
         print(f"Unexpected response structure: {e}")
         sys.exit(1)
 
-def generate_insights_with_llm(report, images):
-    """
-    Uses an LLM to generate insights and a story based on the dataset analysis and visualizations.
 
-    Args:
-        report (dict): A dictionary containing basic analysis results.
-        images (list): A list of file paths to the generated visualizations.
-
-    Returns:
-        str: The story generated by the LLM, referencing the provided visualizations.
-    """
-    # Retrieve the API token from environment variables
-    AIPROXY_TOKEN = os.environ.get("AIPROXY_TOKEN")
-    if not AIPROXY_TOKEN:
-        print("Error: AIPROXY_TOKEN environment variable is not set.")
-        sys.exit(1)
-
-    # Define the API endpoint
-    api_base = "https://aiproxy.sanand.workers.dev/openai/v1"
-    headers = {
-        "Authorization": f"Bearer {AIPROXY_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
-    try:
-        # Prepare the analysis request
-        analysis_request = f"""
-        Based on the following dataset analysis:
-        - Columns info: {report.get('columns_info', 'N/A')}
-        - Missing values: {report.get('missing_values', 'N/A')}
-        - Summary statistics: {report.get('summary', 'N/A')}
-        - Correlation matrix: {report.get('correlation_matrix', 'N/A')}
-        Visualizations created and their purposes:
-        {', '.join([f"Image {i+1}: {os.path.basename(img)}" for i, img in enumerate(images)]) if images else 'None'}.
-        Can you provide an excellent executive summary of insights and a cohesive story based on this analysis.
-        Can you provide insights and a cohesive story based on this analysis,clearly integrating each visualization into the narrative?
-        Provide insights on trends, outliers, comparisons, and their implications, interpret the patterns, potential causes, and their implications for strategic planning.
-        Explain insights in a narrative style, making it engaging and interesting.
-        Highlight Which relationships stand out, and what actionable insights can be derived for decision-making
-        """
-
-        # Prepare the payload for the API request
-        payload = {
-            "model": "gpt-4o-mini",
-            "messages": [
-                {"role": "system", "content": "You are a data analyst summarizing insights from analyses and visualizations."},
-                {"role": "user", "content": analysis_request}
-            ]
-        }
-        
-        # Make the API call
-        response = requests.post(f"{api_base}/chat/completions", headers=headers, json=payload)
-        response.raise_for_status()  # Raise an error for HTTP issues
-
-        # Parse the response and extract the story
-        result = response.json()
-        story = result["choices"][0]["message"]["content"].strip()
-        return story
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error making API request: {e}")
-        sys.exit(1)
-    except KeyError as e:
-        print(f"Unexpected response structure: {e}")
-        sys.exit(1)
 
 
 def generate_summary_report(data):
@@ -817,9 +912,6 @@ def generate_summary_report(data):
 
     return sumreport
 
-import logging
-from PIL import Image
-import tempfile
 
 
 def preprocess_and_encode_png(image_path, max_size=(350, 350)):
@@ -1012,68 +1104,75 @@ def generate_readme(story, images,output_folder,report,visualization_insights):
                 f.write("### Covariance Matrix\n")
                 covariance_df = pd.DataFrame(report['advanced_statistics']['covariance_matrix']).round(3)
                 f.write(covariance_df.to_markdown() + "\n\n")
-     
-# Existing methods like create_output_folder, analyze_dataset, 
-# perform_suggested_analyses, ask_llm_for_story, generate_readme 
-# remain largely the same
+
+            # Feature Importance
+            if 'feature_importance' in report:
+                f.write("### Feature Importance\n")
+                for feature, importance in report['feature_importance'].items():
+                    f.write(f"- {feature}: {importance:.3f}\n")
+
+            # Time-Series Decomposition
+            if 'time_series_decomposition' in report:
+                f.write("### Time-Series Decomposition\n")
+                decomposition = report['time_series_decomposition']
+                f.write(f"- Trend: {decomposition['trend'][:5]} (truncated)\n")
+                f.write(f"- Seasonal: {decomposition['seasonal'][:5]} (truncated)\n")
+                f.write(f"- Residual: {decomposition['residual'][:5]} (truncated)\n")
+
+            # Group Comparison Analysis
+            if 'group_comparison' in report:
+                f.write("### Group Comparison (ANOVA)\n")
+                anova = report['group_comparison']
+                f.write(f"- F-statistic: {anova['f_stat']:.3f}, P-value: {anova['p_value']:.3e}\n")
+   
+
 
 def main():
     """
     Enhanced main function to incorporate advanced analysis techniques.
     """
-     # Load user configuration
+    # Load user configuration
     user_config = {
         "max_images": 1,  # User-specific overrides
         "max_rows": 1,
     }
     config = user_config
 
-    if len(sys.argv) != 2:
-        print("Usage: python autolysis.py <dataset.csv>")
-        sys.exit(1)
-
-    file_path = sys.argv[1]
-    if not os.path.exists(file_path):
-        print(f"Error: File '{file_path}' not found.")
-        sys.exit(1)
+    # Validate command-line arguments
+    file_path = validate_input_arguments()
 
     # Create output folder
     output_folder = create_output_folder(file_path)
-    print("Analyzing dataset...")
-    # Load and analyze dataset
+
+    # Analyze the dataset
     data, report = analyze_dataset(file_path)
-    
-    sumreport=generate_summary_report(data)
-    # Perform advanced statistical analysis
+
+    # Generate summary and advanced statistics
+    sumreport = generate_summary_report(data)
     advanced_stats = advanced_statistical_analysis(data)
-    
-    # Update report with advanced statistics
     report['advanced_stats'] = advanced_stats
-    print("Asking LLM for suggestions...")
-    # Get analysis suggestions
+
+    # Get suggestions for analysis
     suggestions = get_llm_analysis_suggestions(report)
-    #print(f"LLM Suggestions: {suggestions}")
     #suggestions=['### Comprehensive Data Analysis Plan', '', '#### 1. **Data Cleaning and Preparation**', '   - Handle missing values through imputation or removal where appropriate.', '   - Convert categorical columns, if necessary, to appropriate formats for analysis (e.g., encoding factors).', '', '#### 2. **Statistical Analyses and Visualizations**', '   - **Descriptive Statistics**: Evaluate central tendencies, dispersion, and shape of the data to summarize trends.', '   - **Correlation Analysis**: ', '     - Compute Pearson/Spearman correlation coefficients to identify relationships between key variables (e.g., Log GDP per capita with Life Ladder).', '     - Visualize correlations using a heatmap for better understanding of relationships.', '   - **Distribution Analysis**:', '     - Visualize distributions of key variables using histograms and boxplots to identify outliers and understand data spread.', '     - Assess normality using Q-Q plots.', '   - **Cluster Analysis**:', '     - Perform k-means or hierarchical clustering to identify groups of countries based on similar attributes (e.g., socio-economic indicators).', '     - Plot clusters to visualize grouping and potential market segments.', '   - **Principal Component Analysis (PCA)**:', '     - Conduct PCA to reduce dimensionality while retaining variance to better visualize the essential patterns among variables.', '     - Plot PCA results to illustrate country position in a reduced dimension space.', '', '#### 3. **Analysis Objectives**', '   - **Identify Primary Patterns and Trends**:', '     - Use time series analysis to show trends in "Life Ladder" over years, highlighting years with significant changes.', '     - Analyze socio-economic patterns by grouping countries by region and visualizing averages.', '', '   - **Highlight Potential Correlations**:', '     - Present correlation findings in an actionable format. For example, indicate which attributes most strongly correlate with life satisfaction (Life Ladder), allowing policymakers to target areas for improvement.', '     - Suggest further research into the causal impact of these variables on life satisfaction.', '', '   - **Suggest Actionable Insights**:', '     - Provide clear recommendations based on correlation analysis. For instance, if higher social support correlates with higher Life Ladders, suggest investing in community support initiatives.', '     - Offer policy implications, such as improving economic conditions (as seen through GDP per capita) in countries with lower Life Ladder rankings.', '', '#### 4. **Narrative Requirements**', '   - Craft a narrative that takes stakeholders through the journey of data analysis, highlighting key findings in an easy-to-follow format.', '   - Emphasize the business or research implications by relating findings back to potential real-world applications (e.g., governmental policy changes, NGO focus areas).', '   - Create concise recommendations backed by data insights to guide decision-making processes.', '', '### Conclusion', 'The proposed analyses aim to provide a comprehensive view of the dataset that identifies key patterns, potential areas for improvement, and actionable strategies for stakeholders. The incorporation of various statistical techniques will lend credibility and depth to the analysis, ultimately informing decision-making and policy development.']
-    #suggestions=['correlation']
-    print("Performing suggested analyses...")
     # Perform analyses and generate visualizations
-    images = generate_visualizations(data, suggestions, output_folder,config)
+    images = generate_visualizations(data, suggestions, output_folder, config)
 
     # Process images for reduced size and detail
-    compressed_images = process_images(images,output_folder)
-    print("Generating insights using LLM...")
-    visualization_insights = process_visualizations_with_llm(compressed_images,report, data,advanced_stats)
-    #visualization_insights={'/content/goodreads/correlation_heatmap.png': 'The low-resolution visualization appears cluttered with elements that are hard to discern. Key insights suggest potential trends in data distribution, but significant noise obscures details. A few anomalies may indicate spikes or drops in metrics, possibly highlighting areas of interest. The overall pattern seems nonlinear, suggesting variable relationships, potentially influenced by external factors. Further high-resolution analysis would be crucial for accurate interpretation and actionable insights.'}
-    
-    # Generate insights
-    print("Generating insights1 using LLM...")
-    story = generate_insights_with_llm1(report, images, data,advanced_stats)
-    #story='xxx'
-    print("Creating README.md...")
-    # Create README
-    generate_readme(story, images, output_folder,sumreport,visualization_insights)
+    compressed_images = process_images(images, output_folder)
+
+    #visualization_insights="{'/content/goodreads/correlation_heatmap.png': 'The low-resolution visualization appears cluttered with elements that are hard to discern. Key insights suggest potential trends in data distribution, but significant noise obscures details. A few anomalies may indicate spikes or drops in metrics, possibly highlighting areas of interest. The overall pattern seems nonlinear, suggesting variable relationships, potentially influenced by external factors. Further high-resolution analysis would be crucial for accurate interpretation and actionable insights.'}" 
+    # Generate insights using LLM
+    visualization_insights = process_visualizations_with_llm(compressed_images, report, data, advanced_stats)
+
+    # Generate a structured narrative
+    story = generate_insights_with_llm1(report, images, data, advanced_stats)
+    #story="xxx"
+   
+    # Create a summary README
+    generate_readme(story, images, output_folder, sumreport, visualization_insights)
 
     print(f"Analysis complete. Outputs saved in {output_folder}.")
-
+   
 if __name__ == "__main__":
     main()
