@@ -404,68 +404,6 @@ def advanced_statistical_analysis(data):
             }).to_dict()
         }
 
-    # Feature Importance Analysis (Random Forest)
-    if 'target_column' in data.columns:
-        """
-        Identifies feature importance for predictors using Random Forest regression.
-
-        Args:
-            target_column (str): The target variable in the dataset.
-
-        Returns:
-            dict: Importance scores for each predictor variable.
-        """
-        print ('feature_importance')
-        from sklearn.ensemble import RandomForestRegressor
-        X = data.drop(columns=['target_column']).select_dtypes(include=[np.number]).fillna(0)
-        y = data['target_column'].fillna(0)
-        model = RandomForestRegressor(random_state=42)
-        model.fit(X, y)
-        results['feature_importance'] = dict(zip(X.columns, model.feature_importances_))
-
-    # Time-Series Decomposition
-    if 'date' in data.columns and 'value_column' in data.columns:
-        """
-        Decomposes a time-series column into trend, seasonal, and residual components.
-
-        Args:
-            date (str): The column representing time.
-            value_column (str): The column representing the values over time.
-
-        Returns:
-            dict: Lists of trend, seasonal, and residual components.
-        """
-        from statsmodels.tsa.seasonal import seasonal_decompose
-        data['date'] = pd.to_datetime(data['date'], errors='coerce')
-        data = data.dropna(subset=['date', 'value_column']).sort_values('date')
-        decomposition = seasonal_decompose(data['value_column'], model='additive', period=12)
-        results['time_series_decomposition'] = {
-            'trend': decomposition.trend.tolist(),
-            'seasonal': decomposition.seasonal.tolist(),
-            'residual': decomposition.resid.tolist()
-        }
-
-    # Group Comparison Analysis (ANOVA)
-    if 'group_column' in data.columns and 'value_column' in data.columns:
-        """
-        Compares group means using one-way ANOVA.
-
-        Args:
-            group_column (str): The column representing groups.
-            value_column (str): The column representing numeric values.
-
-        Returns:
-            dict: F-statistic and p-value of the ANOVA test.
-        """
-        from scipy.stats import f_oneway
-        groups = [group['value_column'].dropna() for _, group in data.groupby('group_column')]
-        if len(groups) > 1:
-            f_stat, p_value = f_oneway(*groups)
-            results['group_comparison'] = {'f_stat': f_stat, 'p_value': p_value}
-        print ('anov')
-    return results
-
-
 
 def compress_data_for_llm(data, max_rows=3):
     """
@@ -1105,26 +1043,7 @@ def generate_readme(story, images,output_folder,report,visualization_insights):
                 covariance_df = pd.DataFrame(report['advanced_statistics']['covariance_matrix']).round(3)
                 f.write(covariance_df.to_markdown() + "\n\n")
 
-            # Feature Importance
-            if 'feature_importance' in report:
-                f.write("### Feature Importance\n")
-                for feature, importance in report['feature_importance'].items():
-                    f.write(f"- {feature}: {importance:.3f}\n")
-
-            # Time-Series Decomposition
-            if 'time_series_decomposition' in report:
-                f.write("### Time-Series Decomposition\n")
-                decomposition = report['time_series_decomposition']
-                f.write(f"- Trend: {decomposition['trend'][:5]} (truncated)\n")
-                f.write(f"- Seasonal: {decomposition['seasonal'][:5]} (truncated)\n")
-                f.write(f"- Residual: {decomposition['residual'][:5]} (truncated)\n")
-
-            # Group Comparison Analysis
-            if 'group_comparison' in report:
-                f.write("### Group Comparison (ANOVA)\n")
-                anova = report['group_comparison']
-                f.write(f"- F-statistic: {anova['f_stat']:.3f}, P-value: {anova['p_value']:.3e}\n")
-   
+  
 
 
 def main():
