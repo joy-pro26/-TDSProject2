@@ -1133,8 +1133,8 @@ def main():
     """
     # Load user configuration
     user_config = {
-        "max_images": 1,  # User-specific overrides
-        "max_rows": 1,
+        "max_images": 4,  # User-specific overrides
+        "max_rows": 2,
     }
     config = user_config
 
