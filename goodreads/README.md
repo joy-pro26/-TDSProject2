@@ -55,9 +55,11 @@ The analysis of the Goodreads dataset offers valuable insights into the dynamics
 
 ## Visualization Insights
 ### books_count_distribution.png
+![books_count_distribution.png](books_count_distribution.png)
 The low-resolution visualization likely depicts a complex dataset, perhaps focusing on trends or distributions. Key insights may include clusters or patterns among data points, such as significant peaks or troughs indicating areas of interest. Anomalies could be outliers or unexpected values representing potential anomalies. Additionally, variations over time or categories might demonstrate significant deviations from expected norms, warranting further investigation for underlying causes. Further analysis on these trends and anomalies would provide richer insights.
 
 ### correlation_heatmap.png
+![correlation_heatmap.png](correlation_heatmap.png)
 The low-resolution visualization appears to depict a large, complex dataset, likely representing a time series or a spatial distribution. Key insights include potential peaks and troughs, indicating fluctuations over time. Notable anomalies may indicate extreme values or unexpected patterns. A dense cluster of data points suggests regions of interest or activity, while areas of sparse data may warrant further investigation. The overall trend might reveal essential insights relevant to performance, behavior, or other critical metrics. Interpretation requires additional context for meaningful conclusions.
 
 ### Cluster Visualization
