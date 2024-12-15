@@ -1348,7 +1348,7 @@ def process_visualizations_with_llm(images, report, data, advanced_stats):
         dict: A dictionary mapping image paths to LLM-generated insights.
     """
     insights = {}
-    max_count = 4
+    max_count = 2
     max_gen = 0
     for image_path in images:
         try:
