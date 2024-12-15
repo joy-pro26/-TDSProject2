@@ -35,7 +35,7 @@ if not AIPROXY_TOKEN:
 
 openai.api_base = API_URL
 openai.api_key = AIPROXY_TOKEN
-
+# Create output file path.
 def create_output_folder(file_path):
     """
     Creates an output folder named after the input CSV file, excluding the '.csv' extension.
@@ -52,7 +52,6 @@ def create_output_folder(file_path):
     return output_folder
 
 # Analyzes the dataset by loading it and performing a basic summary.
-
 def analyze_dataset(file_path):
     """
     Analyzes the dataset by loading it and performing a basic summary.
@@ -103,7 +102,6 @@ def analyze_dataset(file_path):
     # Raise an error if no encodings succeed
     raise ValueError(f"Unable to decode file: {file_path} with the tried encodings {encodings}")
 
-
 # Input Validation function
 
 def validate_inputs(data, suggestions, output_folder):
@@ -116,7 +114,7 @@ def validate_inputs(data, suggestions, output_folder):
     if not os.access(output_folder, os.W_OK):
         raise PermissionError(f"The output folder '{output_folder}' is not writable.")
 
-
+# Function to generate correlation heatmap plots
 def generate_correlation_heatmap(data, numeric_columns, output_folder, config=None):
     """
     Generate a heatmap for correlation matrix with enhanced readability.
@@ -177,7 +175,7 @@ def generate_correlation_heatmap(data, numeric_columns, output_folder, config=No
           return [save_path]
     return []
 
-
+# Function to generate distribution plots
 def generate_distribution_plots(data, numeric_columns, output_folder, config=None):
     """
     Generate distribution plots (histogram and optional KDE) for numeric columns.
@@ -256,8 +254,7 @@ def generate_distribution_plots(data, numeric_columns, output_folder, config=Non
 
     return images
 
-
-
+# Function to generate_cluster_visualization
 def generate_cluster_visualization(data, numeric_columns, output_folder, config=None):
     """
     Generate a scatter plot visualization of KMeans clusters using the first two numeric columns.
@@ -424,7 +421,7 @@ def generate_pca_visualization(data, numeric_columns, output_folder, config=None
         print("Not enough numeric columns for PCA.")
         return []
 
-
+# Function to generate_time_series_plot
 def generate_time_series_plot(data, numeric_columns, output_folder, config=None):
     """
     Generate a time series plot for numeric columns grouped by date.
@@ -489,7 +486,7 @@ def generate_time_series_plot(data, numeric_columns, output_folder, config=None)
         print(f"Date column '{date_column}' not found in the dataset.")
     return []
 
-
+# Function to Generate Box Plots
 def generate_box_plots(data, numeric_columns, output_folder, config=None):
     """
     Generate box plots for numeric columns in the dataset.
@@ -565,7 +562,6 @@ def generate_box_plots(data, numeric_columns, output_folder, config=None):
     return images
 
 # Function to Generate Visualisation and Graps
-
 def generate_visualizations(data, suggestions, output_folder, config=None):
     """
     Orchestrates the generation of visualizations based on suggestions.
@@ -698,7 +694,6 @@ def advanced_statistical_analysis(data):
     return results
 
 # Function to compress data for llm prompt
-
 def compress_data_for_llm(data, max_rows=3):
     """
     Compress dataset for token-efficient LLM processing by sampling rows 
@@ -746,7 +741,6 @@ def compress_data_for_llm(data, max_rows=3):
     return compressed_data, summary
 
 # Function to create enhance prompt
-
 def create_enhanced_prompt(report, context_level='detailed', custom_objectives=None):
     """
     Create a structured, context-rich prompt for LLM analysis.
@@ -831,7 +825,6 @@ def create_enhanced_prompt(report, context_level='detailed', custom_objectives=N
     return formatted_prompt
 
 # Function to make llm analysis
-
 def get_llm_analysis_suggestions(report):
     """
     Fetches LLM analysis suggestions with robust error handling, retry logic, and fallback options.
@@ -1051,45 +1044,6 @@ def make_api_request_with_retry(url, headers, payload, retries=3, backoff_factor
 
 
 # Function to create 512x512 and compress
-def process_images1(image_paths, output_folder):
-    """
-    Resize images to 512x512 and compress them to the output folder.
-
-    Args:
-        image_paths (list): List of paths to input images.
-        output_folder (str): Path to the folder where processed images will be saved.
-
-    Returns:
-        list: Paths to the processed images.
-    """
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)  # Ensure the output folder exists
-
-    processed_images = []
-
-    for img_path in image_paths:
-        try:
-            # Open the image
-            img = Image.open(img_path)
-            img_format = img.format  # Preserve original format
-
-            # Resize to 512x512
-            #img_resized = img.resize((512, 512), Image.ANTIALIAS)
-            img_resized = img.resize((512, 512), Image.Resampling.LANCZOS)
-            # Prepare the output path
-            compressed_path = os.path.join(output_folder, os.path.basename(img_path))
-
-            # Save the resized and compressed image
-            img_resized.save(compressed_path, format=img_format, optimize=True, quality=70)
-
-            # Append the processed image path to the list
-            processed_images.append(compressed_path)
-
-        except Exception as e:
-            print(f"Error processing image '{img_path}': {e}")
-
-    return processed_images
-
 
 def process_images(image_paths, output_folder,max_file_size_kb=40):
     """
@@ -1307,7 +1261,6 @@ def preprocess_and_encode_png(image_path, max_size=(350, 350)):
     except Exception as e:
         print(f"Error processing image: {e}")
         return None
-
 
 def analyze_visualization(image_path):
     try:
