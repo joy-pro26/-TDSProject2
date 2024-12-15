@@ -60,7 +60,8 @@ The low-resolution visualization likely depicts a complex dataset, perhaps focus
 ### correlation_heatmap.png
 The low-resolution visualization appears to depict a large, complex dataset, likely representing a time series or a spatial distribution. Key insights include potential peaks and troughs, indicating fluctuations over time. Notable anomalies may indicate extreme values or unexpected patterns. A dense cluster of data points suggests regions of interest or activity, while areas of sparse data may warrant further investigation. The overall trend might reveal essential insights relevant to performance, behavior, or other critical metrics. Interpretation requires additional context for meaningful conclusions.
 
-###!cluster_visualization.png(cluster_visualization.png)
+### Cluster Visualization
+![cluster_visualization.png](cluster_visualization.png)
 The low-resolution visualization presents an overwhelming amount of data, likely indicating significant fluctuations over time. Key insights suggest a general downtrend, potentially representing deteriorating conditions or performance. Anomalies may be spotted in sharp rises or drops, particularly within notable time frames, hinting at events of interest or sudden changes. Overall, it highlights the need for further investigation into specific data points to understand the underlying causes of these patterns.
 
 ## Appendix 
