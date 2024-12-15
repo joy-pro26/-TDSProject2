@@ -1,3 +1,15 @@
+"""
+#######                                   TDS-Project 2                           #######          
+Introduction: Unlocking Insights with Automated Data Analysis
+
+Autolysis is an intuitive tool that simplifies data analysis by automating key processes in data analysis and providing actionable insights. 
+It integrates advanced visualizations, statistical methods, and machine learning techniques such as clustering and PCA to uncover hidden patterns. 
+With the power of large language models (LLMs), it produces narrative-style reports and recommendations for decision-making. 
+Limited visualizations and detailed summaries are supported, consolidated into a clear, shareable README. 
+Whether for data scientists or business analysts, it transforms complex datasets into compelling insights with minimal effort.
+
+"""
+
 import os
 import sys
 import base64
@@ -352,6 +364,8 @@ def generate_cluster_visualization(data, numeric_columns, output_folder, config=
         print("Not enough numeric columns for clustering.")
         return []
 
+# Function to pca_visualization
+
 def generate_pca_visualization(data, numeric_columns, output_folder, config=None):
     """
     Generate a scatter plot visualization of the first two principal components using PCA.
@@ -561,7 +575,7 @@ def generate_box_plots(data, numeric_columns, output_folder, config=None):
 
     return images
 
-# Function to Generate Visualisation and Graps
+# Function to Generate Visualisation and Graphs
 def generate_visualizations(data, suggestions, output_folder, config=None):
     """
     Orchestrates the generation of visualizations based on suggestions.
@@ -1084,7 +1098,7 @@ def process_images(image_paths, output_folder,max_file_size_kb=40):
 
     return processed_images
 
-
+# Function to Prepare a structured and concise prompt for the LLM.
 def prepare_structured_prompt(report, images, data, advanced_stats):
     """
     Prepare a structured and concise prompt for the LLM.
@@ -1092,9 +1106,31 @@ def prepare_structured_prompt(report, images, data, advanced_stats):
     columns_info = report.get('columns_info', {})
     missing_values = report.get('missing_values', {})
     summary_stats = report.get('summary', {})
+    correlation_matrix =report.get('correlation_matrix', {})
+
     visualization_descriptions = '\n'.join(
         [f"- **Image {i+1}:** {os.path.basename(img)}" for i, img in enumerate(set(images))]
     ) if images else 'None'
+
+    # Extract advanced statistics
+    normality_tests = advanced_stats.get('normality_tests', {})
+    outlier_analysis = advanced_stats.get('outlier_analysis', {})
+    correlations = advanced_stats.get('advanced_correlations', {})
+
+    # Format correlation matrices
+    spearman_corr = correlations.get('spearman_correlation', "No Spearman correlation data available.")
+    kendall_corr = correlations.get('kendall_correlation', "No Kendall correlation data available.")
+
+    # Build a summary of advanced statistics
+    normality_summary = '\n'.join([
+        f"- **{col}**: {'Normally distributed' if res.get('is_normally_distributed', False) else 'Not normally distributed'} (p-value={res.get('p_value', 'N/A')})"
+        for col, res in normality_tests.items()
+    ]) if normality_tests else "No normality tests performed."
+
+    outlier_summary = '\n'.join([
+        f"- **{col}**: {outliers.get('total_outliers', 0)} total outliers (IQR: {outliers.get('iqr_outliers_count', 0)}, Z-Score: {outliers.get('zscore_outliers_count', 0)})"
+        for col, outliers in outlier_analysis.items()
+    ]) if outlier_analysis else "No outlier analysis performed."
 
     # Simplify advanced statistics
     correlations = "Overall scores strongly correlate with quality (Spearman: 0.82). Repeatability shows a weaker correlation (Spearman: 0.49)."
@@ -1115,6 +1151,20 @@ def prepare_structured_prompt(report, images, data, advanced_stats):
             - Summary: The dataset contains {len(columns_info)} columns, with missing data in 'date' and 'by'. Numeric columns like 'overall' and 'quality' have average scores around 3.2.
             - Correlations: {correlations}
 
+            ### Advanced Insights
+            - Correlations Matrix: {correlation_matrix}
+            
+            #### Normality Tests
+              {normality_summary}
+
+            #### Outlier Analysis
+              {outlier_summary}
+
+            #### Correlation Matrices
+            - **Spearman Correlation**: {spearman_corr}
+
+            - **Kendall Correlation**: {kendall_corr}
+
             ### Comparative Visualizations and Insights
             {visualization_descriptions}
 
@@ -1130,7 +1180,7 @@ def prepare_structured_prompt(report, images, data, advanced_stats):
             Summarize the key takeaways and their implications for stakeholders.
             """
 
-
+# Function to structured narrative using an LLM based on the dataset analysis and visualizations.
 def generate_insights_with_llm1(report, images, data,advanced_stats):
     """
     Generates a structured narrative using an LLM based on the dataset analysis and visualizations.
@@ -1201,7 +1251,7 @@ def generate_insights_with_llm1(report, images, data,advanced_stats):
         print(f"Unexpected response structure: {e}")
         sys.exit(1)
 
-
+# Function to generate summary report.
 def generate_summary_report(data):
     """
     Generates a summary report focusing on summary statistics and advanced statistics.
@@ -1228,6 +1278,7 @@ def generate_summary_report(data):
 
     return sumreport
 
+# Function to encoding PNG IMAGE.
 def preprocess_and_encode_png(image_path, max_size=(350, 350)):
     """
     Resize a PNG image, optimize it, and encode it in Base64.
@@ -1261,6 +1312,8 @@ def preprocess_and_encode_png(image_path, max_size=(350, 350)):
     except Exception as e:
         print(f"Error processing image: {e}")
         return None
+
+# Function to vision analysis through image processing and LLM.
 
 def analyze_visualization(image_path):
     try:
@@ -1333,7 +1386,7 @@ def analyze_visualization(image_path):
 
     return "Error: Unable to process the request."
 
-
+# Function to process Processes a list of visualizations using an LLM and returns insights.
 def process_visualizations_with_llm(images, report, data, advanced_stats):
     """
     Processes a list of visualizations using an LLM and returns insights.
@@ -1365,7 +1418,7 @@ def process_visualizations_with_llm(images, report, data, advanced_stats):
 
     return insights
 
-        
+# Function to generate readme file summarizing the dataset analysis, insights, and visualizations.        
 def generate_readme(story, images,output_folder,report,visualization_insights):
     """
     Generates a README.md file summarizing the dataset analysis, insights, and visualizations.
@@ -1386,7 +1439,8 @@ def generate_readme(story, images,output_folder,report,visualization_insights):
         if isinstance(visualization_insights, dict):
             for img, insight in visualization_insights.items():  # Correctly unpack dictionary
                 img_name = os.path.basename(img)
-                f.write(f"### {img_name}\n")
+                #f.write(f"### {img_name}\n")
+                f.write(f"![{img_name}]({img_name})\n")  # Embed visualizations in the README
                 f.write(f"{insight}\n\n")
         else:
                 f.write("No visualization insights available.\n\n")
@@ -1405,7 +1459,9 @@ def generate_readme(story, images,output_folder,report,visualization_insights):
                 f.write("### Covariance Matrix\n")
                 covariance_df = pd.DataFrame(report['advanced_statistics']['covariance_matrix']).round(3)
                 f.write(covariance_df.to_markdown() + "\n\n")
-     
+
+# Main function to incorporate advanced analysis techniques
+
 def main():
     """
     Enhanced main function to incorporate advanced analysis techniques.
@@ -1441,7 +1497,6 @@ def main():
     print("Asking LLM for suggestions...")
     # Get analysis suggestions
     suggestions = get_llm_analysis_suggestions(report)
-   
     print("Performing suggested analyses...")
     # Perform analyses and generate visualizations
     images = generate_visualizations(data, suggestions, output_folder,config)
@@ -1450,7 +1505,6 @@ def main():
     compressed_images = process_images(images,output_folder)
     print("Generating insights using LLM...")
     visualization_insights = process_visualizations_with_llm(compressed_images,report, data,advanced_stats)
-    
     # Generate insights
     print("Generating insights1 using LLM...")
     story = generate_insights_with_llm1(report, images, data,advanced_stats)
