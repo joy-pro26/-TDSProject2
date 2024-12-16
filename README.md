@@ -110,16 +110,6 @@ The tool integrates with OpenAI's GPT-4o-mini model to generate:
 | Overall      | 0.82    | 1.0     |
 ```
 
-### **Covariance Matrix**
-
-```plaintext
-|              | Quality | Overall |
-|--------------|---------|---------|
-| Quality      | 0.64    | 0.55    |
-| Overall      | 0.55    | 1.21    |
-```
-
----
 
 ## Configuration
 
@@ -136,12 +126,9 @@ The tool supports customizable configurations:
 
 - Python 3.8 or above.
 - Required libraries:
-  ```bash
+  ```
   pip install pandas numpy matplotlib seaborn scikit-learn scipy openai pillow
   ```
 
 ---
 
-## Contact
-
-For questions or feedback, reach out to the development team at [[your-email@example.com](mailto\:your-email@example.com)].
